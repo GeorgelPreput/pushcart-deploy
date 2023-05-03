@@ -1,3 +1,10 @@
+## [1.0.1](https://github.com/GeorgelPreput/pushcart-deploy/compare/v1.0.0...v1.0.1) (2023-05-03)
+
+
+### Bug Fixes
+
+* **devtools:** Updated Node.js version to 20 for checkout in GitHub Actions ([6374c87](https://github.com/GeorgelPreput/pushcart-deploy/commit/6374c87cc71f616e307345ea9b4d067627892803))
+
 # 1.0.0 (2023-05-03)
 
 
