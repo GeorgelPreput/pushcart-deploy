@@ -29,7 +29,6 @@
                 }
             ],
             "@semantic-release/git"
-        ],
-        "preset": "angular"
+        ]
     }
 }
