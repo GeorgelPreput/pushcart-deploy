@@ -1,3 +1,11 @@
+## [1.0.2](https://github.com/GeorgelPreput/pushcart-deploy/compare/v1.0.1...v1.0.2) (2023-05-03)
+
+
+### Bug Fixes
+
+* **devtools:** Node.js version ([92ae202](https://github.com/GeorgelPreput/pushcart-deploy/commit/92ae2021b4fb532de013c79939d97ab38bc1735d))
+* **devtools:** Node.js version for semantic-release ([96e1015](https://github.com/GeorgelPreput/pushcart-deploy/commit/96e1015adf27aa57bf66547cf958c210069d5c42))
+
 ## [1.0.1](https://github.com/GeorgelPreput/pushcart-deploy/compare/v1.0.0...v1.0.1) (2023-05-03)
 
 
