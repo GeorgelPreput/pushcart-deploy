@@ -1,0 +1,19 @@
+{
+    "name": "pushcart-deploy",
+    "version": "0.1.0",
+    "description": "Deployment package for the Pushcart library. To be used locally in conjunction with a Databricks environment remote, or in CI-CD",
+    "keywords": [
+        "Programming Language :: Python :: 3.9",
+        "License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)",
+        "Operating System :: OS Independent",
+        "Topic :: Database :: Database Engines/Servers",
+        "Topic :: Software Development :: Libraries :: Application Frameworks",
+        "Topic :: Software Development :: Libraries :: Python Modules"
+    ],
+    "license": "GPL-3.0-or-later",
+    "release": {
+        "branches": [
+            "main"
+        ]
+    }
+}
