@@ -14,9 +14,15 @@ jobs:
 
       - name: Set up Node.js
         uses: actions/setup-node@v2
+        with:
+          node-version: 16
 
       - name: Install dependencies
-        run: npm ci
+        run: |
+          if [ -ne package-lock.json ]; then
+            npm i
+            fi
+          npm ci
 
       - name: Run semantic-release
         env:
