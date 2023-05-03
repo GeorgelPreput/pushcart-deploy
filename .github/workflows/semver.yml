@@ -19,7 +19,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          if [ ! -f package-lock.json ]; then
+          if [ ! -e package-lock.json ]; then
             npm i
             fi
           npm ci
