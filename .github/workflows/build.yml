@@ -76,8 +76,8 @@
           - name: Publish to PyPi Test
             if: github.ref != 'refs/heads/main'
             run: |
-              poetry config pypi-token.pypi ${{ secrets.POETRY_PYPI_TOKEN_PYPI_TEST }}
               poetry config repositories.testpypi https://test.pypi.org/legacy/
+              poetry config pypi-token.testpypi ${{ secrets.POETRY_PYPI_TOKEN_PYPI_TEST }}
               poetry publish -r testpypi
           #----------------------------------------------
           #               publish to pypi
