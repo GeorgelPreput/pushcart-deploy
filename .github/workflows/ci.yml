@@ -21,5 +21,10 @@ jobs:
         uses: "./.github/workflow-templates/test"
       - name: semver
         uses: "./.github/workflow-templates/semver"
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
       - name: publish
         uses: "./.github/workflow-templates/publish"
+        with:
+          pypi_token: ${{ secrets.POETRY_PYPI_TOKEN_PYPI }}
+          pypi_test_token: ${{ secrets.POETRY_PYPI_TOKEN_PYPI_TEST }}

@@ -1,6 +1,11 @@
 name: semantic-release
 description: Assign a semantic version and create release
 
+inputs:
+  github_token:
+    description: GitHub Token
+    required: true
+
 runs:
   using: "composite"
   steps:
@@ -21,5 +26,5 @@ runs:
     - name: Run semantic-release
       shell: bash
       env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        GITHUB_TOKEN: ${{ inputs.github_token }}
       run: npx semantic-release

@@ -1,6 +1,15 @@
 name: publish
 description: Publish to PyPi or Test PyPi
 
+inputs:
+  pypi_token:
+    description: API Token to push to the main PyPi repository
+    required: true
+
+  pypi_test_token:
+    description: API Token to push to the test PyPi repository
+    required: true
+
 runs:
   using: "composite"
   steps:
@@ -12,7 +21,7 @@ runs:
       shell: bash
       run: |
         poetry config repositories.testpypi https://test.pypi.org/legacy/
-        poetry config pypi-token.testpypi ${{ secrets.POETRY_PYPI_TOKEN_PYPI_TEST }}
+        poetry config pypi-token.testpypi ${{ inputs.pypi_token }}
         poetry publish -r testpypi
     #----------------------------------------------
     #               publish to pypi
@@ -21,5 +30,5 @@ runs:
       if: github.ref == 'refs/heads/main'
       shell: bash
       run: |
-        poetry config pypi-token.pypi ${{ secrets.POETRY_PYPI_TOKEN_PYPI }}
+        poetry config pypi-token.pypi ${{ inputs.pypi_test_token }}
         poetry publish
