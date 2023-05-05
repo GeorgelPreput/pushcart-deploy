@@ -19,9 +19,10 @@ runs:
     - name: Publish to PyPi Test
       if: github.ref != 'refs/heads/main'
       shell: bash
+      env:
+        secrets.POETRY_PYPI_TOKEN_PYPI_TEST: ${{ inputs.pypi_test_token }}
       run: |
-        poetry config repositories.testpypi https://test.pypi.org/legacy/
-        poetry config pypi-token.testpypi ${{ inputs.pypi_token }}
+        poetry config repositories.pypi_test https://test.pypi.org/legacy/
         poetry publish -r testpypi
     #----------------------------------------------
     #               publish to pypi
@@ -29,6 +30,7 @@ runs:
     - name: Publish to PyPi
       if: github.ref == 'refs/heads/main'
       shell: bash
+      env:
+        secrets.POETRY_PYPI_TOKEN_PYPI: ${{ inputs.pypi_token }}
       run: |
-        poetry config pypi-token.pypi ${{ inputs.pypi_test_token }}
         poetry publish
