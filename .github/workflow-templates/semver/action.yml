@@ -1,5 +1,8 @@
 name: semantic-release
+description: Assign a semantic version and create release
+
 runs:
+  using: "composite"
   steps:
     - name: Set up Node.js
       uses: actions/setup-node@v3
@@ -7,6 +10,7 @@ runs:
         node-version: 20
 
     - name: Install dependencies
+      shell: bash
       run: |
         if [ ! -e package-lock.json ]; then
           npm i
@@ -15,6 +19,7 @@ runs:
         npm install @semantic-release/git @semantic-release/changelog @google/semantic-release-replace-plugin -D
 
     - name: Run semantic-release
+      shell: bash
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: npx semantic-release

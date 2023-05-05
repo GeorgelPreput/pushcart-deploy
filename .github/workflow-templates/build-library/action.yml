@@ -1,11 +1,11 @@
 # ---------------------------------------------------------------
 # build and test make use of:
 # https://github.com/marketplace/actions/install-poetry-action
-name: build
-
-on: push
+name: build-library
+description: Build library using Poetry
 
 runs:
+  using: "composite"
   steps:
     #----------------------------------------------
     #       check-out repo and set-up python
@@ -36,15 +36,18 @@ runs:
     # install dependencies if cache does not exist
     #----------------------------------------------
     - name: Install dependencies
+      shell: bash
       if: steps.cached-poetry-dependencies.outputs.cache-hit != 'true'
       run: poetry install --no-interaction --no-root
     #----------------------------------------------
     #                 build library
     #----------------------------------------------
     - name: Build library
+      shell: bash
       run: poetry build
     #----------------------------------------------
     # install your root project, if required
     #----------------------------------------------
     - name: Install library
+      shell: bash
       run: poetry install --no-interaction
