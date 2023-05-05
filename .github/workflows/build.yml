@@ -1,0 +1,89 @@
+#---------------------------------------------------------------
+# build and test make use of:
+# https://github.com/marketplace/actions/install-poetry-action
+# 
+# upload code coverage makes use of:
+# https://github.com/marketplace/actions/pytest-coverage-comment
+#---------------------------------------------------------------
+
+    name: build
+    run-name: Build library and push to PyPi
+    
+    on: push
+    
+    jobs:
+      build_test_publish:
+        runs-on: ubuntu-latest
+        steps:
+          #----------------------------------------------
+          #       check-out repo and set-up python
+          #----------------------------------------------
+          - uses: actions/checkout@v3
+          - uses: actions/setup-python@v4
+            id: setup-python
+            with:
+              python-version: '3.10'
+          #----------------------------------------------
+          #  -----  install & configure poetry  -----
+          #----------------------------------------------
+          - name: Install Poetry
+            uses: snok/install-poetry@v1
+            with:
+              virtualenvs-create: true
+              virtualenvs-in-project: true
+          #----------------------------------------------
+          #       load cached venv if cache exists
+          #----------------------------------------------
+          - name: Load cached venv
+            id: cached-poetry-dependencies
+            uses: actions/cache@v3
+            with:
+              path: .venv
+              key: venv-${{ runner.os }}-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('**/poetry.lock') }}
+          #----------------------------------------------
+          # install dependencies if cache does not exist
+          #----------------------------------------------
+          - name: Install dependencies
+            if: steps.cached-poetry-dependencies.outputs.cache-hit != 'true'
+            run: poetry install --no-interaction --no-root
+          #----------------------------------------------
+          #                 build library
+          #----------------------------------------------
+          - name: Build library
+            run: poetry build
+          #----------------------------------------------
+          # install your root project, if required
+          #----------------------------------------------
+          - name: Install library
+            run: poetry install --no-interaction
+          #----------------------------------------------
+          #    run test suite and output coverage file
+          #----------------------------------------------
+          - name: Test with pytest
+            run: poetry run pytest --junitxml=pytest.xml --cov-report=term-missing:skip-covered --cov=src --cov-report=xml tests/ | tee pytest-coverage.txt
+          #----------------------------------------------
+          #             upload coverage stats
+          #----------------------------------------------
+          - name: Pytest coverage comment
+            id: coverageComment
+            uses: MishaKav/pytest-coverage-comment@main
+            with:
+              pytest-coverage-path: ./pytest-coverage.txt
+              junitxml-path: ./pytest.xml
+          #----------------------------------------------
+          #            publish to pypi test
+          #----------------------------------------------
+          - name: Publish to PyPi Test
+            if: github.ref != 'refs/heads/main'
+            run: |
+              poetry config repositories.testpypi https://test.pypi.org/legacy/
+              poetry config pypi-token.testpypi ${{ secrets.POETRY_PYPI_TOKEN_PYPI_TEST }}
+              poetry publish -r testpypi
+          #----------------------------------------------
+          #               publish to pypi
+          #----------------------------------------------
+          - name: Publish to PyPi
+            if: github.ref == 'refs/heads/main'
+            run: |
+              poetry config pypi-token.pypi ${{ secrets.POETRY_PYPI_TOKEN_PYPI }}
+              poetry publish
