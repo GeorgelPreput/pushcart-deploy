@@ -1,3 +1,10 @@
+# [1.1.0](https://github.com/GeorgelPreput/pushcart-deploy/compare/v1.0.2...v1.1.0) (2023-05-05)
+
+
+### Features
+
+* **devtools:** Use poetry for dependency management ([832a26b](https://github.com/GeorgelPreput/pushcart-deploy/commit/832a26b436565de70dda2ed079f3f30873f83059))
+
 ## [1.0.2](https://github.com/GeorgelPreput/pushcart-deploy/compare/v1.0.1...v1.0.2) (2023-05-03)
 
 
