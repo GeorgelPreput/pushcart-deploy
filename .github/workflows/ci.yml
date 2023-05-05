@@ -16,7 +16,7 @@ jobs:
         with:
           python-version: "3.10"
       - name: build
-        uses: "./.github/workflow-templates/build"
+        uses: "./.github/workflow-templates/build-library"
       - name: test
         uses: "./.github/workflow-templates/test"
       - name: semver
