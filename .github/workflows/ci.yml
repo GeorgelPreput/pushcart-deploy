@@ -1,0 +1,30 @@
+name: build
+run-name: Build library and push to PyPi
+
+on: push
+
+jobs:
+  build_test_publish:
+    runs-on: ubuntu-latest
+    steps:
+      #----------------------------------------------
+      #       check-out repo and set-up python
+      #----------------------------------------------
+      - uses: actions/checkout@v3
+      - uses: actions/setup-python@v4
+        id: setup-python
+        with:
+          python-version: "3.10"
+      - name: build
+        uses: "./.github/workflow-templates/build-library"
+      - name: test
+        uses: "./.github/workflow-templates/test"
+      - name: semver
+        uses: "./.github/workflow-templates/semver"
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+      - name: publish
+        uses: "./.github/workflow-templates/publish"
+        with:
+          pypi_token: ${{ secrets.POETRY_PYPI_TOKEN_PYPI }}
+          pypi_test_token: ${{ secrets.POETRY_PYPI_TOKEN_PYPI_TEST }}
