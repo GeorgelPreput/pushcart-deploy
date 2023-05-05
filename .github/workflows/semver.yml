@@ -23,7 +23,7 @@ jobs:
             npm i
             fi
           npm ci
-          npm install @semantic-release/git @semantic-release/changelog -D
+          npm install @semantic-release/git @semantic-release/changelog @google/semantic-release-replace-plugin -D
 
       - name: Run semantic-release
         env:
