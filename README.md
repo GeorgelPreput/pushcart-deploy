@@ -1,2 +1,3 @@
 # pushcart-deploy
-Deployment job helper for CI-CD
+
+Deployment helper for pipeline configurations using Pushcart
