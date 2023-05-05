@@ -1,0 +1,17 @@
+name: build
+run-name: Build library and push to PyPi
+
+on: push
+
+jobs:
+  build_test_publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: build
+        uses: "./.github/workflow-templates/build"
+      - name: test
+        uses: "./.github/workflow-templates/test"
+      - name: semver
+        uses: "./.github/workflow-templates/semver"
+      - name: publish
+        uses: "./.github/workflow-templates/publish"
