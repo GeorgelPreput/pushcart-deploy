@@ -23,7 +23,7 @@ runs:
         secrets.POETRY_PYPI_TOKEN_PYPI_TEST: ${{ inputs.pypi_test_token }}
       run: |
         poetry config repositories.pypi_test https://test.pypi.org/legacy/
-        poetry publish -r testpypi
+        poetry publish -r pypi_test
     #----------------------------------------------
     #               publish to pypi
     #----------------------------------------------
