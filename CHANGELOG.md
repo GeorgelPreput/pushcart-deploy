@@ -1,3 +1,10 @@
+# [1.2.0](https://github.com/GeorgelPreput/pushcart-deploy/compare/v1.1.0...v1.2.0) (2023-05-05)
+
+
+### Features
+
+* **core:** Moved functionality from main Pushcart repo ([32a322d](https://github.com/GeorgelPreput/pushcart-deploy/commit/32a322df1882ef6c8f78303b465a051b0f927500))
+
 # [1.1.0](https://github.com/GeorgelPreput/pushcart-deploy/compare/v1.0.2...v1.1.0) (2023-05-05)
 
 
