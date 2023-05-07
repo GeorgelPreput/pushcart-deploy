@@ -152,11 +152,11 @@ class TestSource:
         """
         Tests that a source object can be created with valid data, type, and into fields.
         """
-        data = "./tests/data/example.csv"
+        origin = "./tests/data/example.csv"
         type = "csv"
         into = "my_view"
-        source = Source(data=data, type=type, into=into)
-        assert source.data == data
+        source = Source(origin=origin, type=type, into=into)
+        assert source.origin == origin
         assert source.type == type
         assert source.into == into
 
@@ -164,7 +164,7 @@ class TestSource:
         """
         Tests that a source object can be created with optional params and validations fields.
         """
-        data = "./tests/data/example.csv"
+        origin = "./tests/data/example.csv"
         type = "csv"
         into = "my_view"
         params = {"delimiter": ","}
@@ -174,9 +174,9 @@ class TestSource:
             {"validation_rule": validation_rule, "validation_action": validation_action}
         ]
         source = Source(
-            data=data, type=type, into=into, params=params, validations=validations
+            origin=origin, type=type, into=into, params=params, validations=validations
         )
-        assert source.data == data
+        assert source.origin == origin
         assert source.type == type
         assert source.into == into
         assert source.params == params
@@ -192,11 +192,11 @@ class TestSource:
         type and into fields.
         """
         with pytest.raises(ValueError):
-            Source(data="", type="csv", into="my_view")
+            Source(origin="", type="csv", into="my_view")
         with pytest.raises(ValueError):
-            Source(data="./tests/data/example.csv", type="", into="my_view")
+            Source(origin="./tests/data/example.csv", type="", into="my_view")
         with pytest.raises(ValueError):
-            Source(data="./tests/data/example.csv", type="csv", into="")
+            Source(origin="./tests/data/example.csv", type="csv", into="")
 
     def test_source_allows_optional_params_and_validations(self):
         """
@@ -204,13 +204,13 @@ class TestSource:
         associated with the data source
         """
         source_with_params = Source(
-            data="data/example.csv",
+            origin="data/example.csv",
             type="csv",
             into="my_view",
             params={"delimiter": ","},
         )
         source_with_validations = Source(
-            data="data/example.csv",
+            origin="data/example.csv",
             type="csv",
             into="my_view",
             validations=[Validation(validation_rule="rule1", validation_action="LOG")],
@@ -227,7 +227,7 @@ class TestTransformation:
         instantiated and validated.
         """
         transformation = Transformation(
-            data="some data",
+            origin="some data",
             into="some output",
             config="./tests/data/example.yaml",
             sql_query=None,
@@ -236,7 +236,7 @@ class TestTransformation:
                 {"validation_rule": "rule2", "validation_action": "DROP"},
             ],
         )
-        assert transformation.data == "some data"
+        assert transformation.origin == "some data"
         assert transformation.into == "some output"
         assert transformation.config == Path("./tests/data/example.yaml")
         assert transformation.validations[0].validation_rule == "rule1"
@@ -250,11 +250,11 @@ class TestTransformation:
         validated.
         """
         transformation = Transformation(
-            data="some data",
+            origin="some data",
             into="some output",
             sql_query="SELECT * FROM table",
         )
-        assert transformation.data == "some data"
+        assert transformation.origin == "some data"
         assert transformation.into == "some output"
         assert transformation.sql_query == "SELECT * FROM table"
         assert transformation.validations == []
@@ -266,13 +266,13 @@ class TestTransformation:
         """
         with pytest.raises(ValueError):
             Transformation(
-                data="",
+                origin="",
                 into="my_output_view",
                 sql_query="SELECT * FROM table",
             )
         with pytest.raises(ValueError):
             Transformation(
-                data="my_input_view",
+                origin="my_input_view",
                 into="",
                 sql_query="SELECT * FROM table",
             )
@@ -284,7 +284,7 @@ class TestTransformation:
         """
         with pytest.raises(ValueError):
             Transformation(
-                data="my_input_view",
+                origin="my_input_view",
                 into="my_output_view",
                 config="./tests/data/example.yaml",
                 sql_query="SELECT * FROM table",
@@ -296,7 +296,7 @@ class TestTransformation:
         correctly validated.
         """
         with pytest.raises(ValueError):
-            Transformation(data="test", into="test")
+            Transformation(origin="test", into="test")
 
     def test_multiple_validations_with_same_rule(self):
         """
@@ -308,7 +308,7 @@ class TestTransformation:
 
         with pytest.raises(ValueError) as e:
             Transformation(
-                data="my_input_view",
+                origin="my_input_view",
                 into="my_output_view",
                 config="./tests/data/example.yaml",
                 validations=[validation1, validation2],
@@ -322,7 +322,7 @@ class TestDestination:
         Tests that the destination class can be instantiated with valid input data.
         """
         dest = Destination(
-            data="my_data",
+            origin="my_data",
             into="my_table",
             path="/path/to/destination",
             mode="upsert",
@@ -333,7 +333,7 @@ class TestDestination:
                 {"validation_rule": "col2 < 100", "validation_action": "DROP"},
             ],
         )
-        assert dest.data == "my_data"
+        assert dest.origin == "my_data"
         assert dest.into == "my_table"
         assert dest.path == "/path/to/destination"
         assert dest.mode == "upsert"
@@ -347,9 +347,9 @@ class TestDestination:
         are missing.
         """
         with pytest.raises(TypeError):
-            Destination(data="my_data", mode="append")
+            Destination(origin="my_data", mode="append")
         with pytest.raises(ValueError):
-            Destination(data="my_data", mode="append", into=None)
+            Destination(origin="my_data", mode="append", into=None)
 
     def test_invalid_mode_value(self):
         """
@@ -358,7 +358,7 @@ class TestDestination:
         """
         with pytest.raises(ValueError):
             Destination(
-                data="my_data",
+                origin="my_data",
                 into="my_table",
                 path="/path/to/destination",
                 mode="invalid_mode",
@@ -371,7 +371,7 @@ class TestDestination:
         """
         with pytest.raises(KeyError):
             Destination(
-                data="test_data",
+                origin="test_data",
                 into="test_into",
                 path="test_path",
                 mode="upsert",
@@ -384,7 +384,7 @@ class TestDestination:
         """
         with pytest.raises(ValueError):
             Destination(
-                data="",
+                origin="",
                 into="test_into",
                 path="test_path",
                 mode="append",
@@ -399,7 +399,7 @@ class TestDestination:
         """
         with pytest.raises(ValueError):
             Destination(
-                data="test_data",
+                origin="test_data",
                 into="test_into",
                 path="test_path",
                 mode="append",
@@ -418,36 +418,38 @@ class TestConfiguration:
         Tests that a configuration object can be created with all three fields defined.
         """
         config_dict = {
-            "sources": [{"data": "path/to/data", "type": "csv", "into": "temp_table"}],
+            "sources": [
+                {"origin": "path/to/data", "type": "csv", "into": "temp_table"}
+            ],
             "transformations": [
                 {
-                    "data": "temp_table",
+                    "origin": "temp_table",
                     "into": "output_table",
                     "sql_query": "SELECT * FROM temp_table",
                 }
             ],
             "destinations": [
-                {"data": "output_table", "into": "delta_table", "mode": "append"}
+                {"origin": "output_table", "into": "delta_table", "mode": "append"}
             ],
         }
         config = Configuration(**config_dict)
 
         assert config.sources == [
             Source(
-                data="path/to/data",
+                origin="path/to/data",
                 type="csv",
                 into="temp_table",
             )
         ]
         assert config.transformations == [
             Transformation(
-                data="temp_table",
+                origin="temp_table",
                 into="output_table",
                 sql_query="SELECT * FROM temp_table",
             )
         ]
         assert config.destinations == [
-            Destination(data="output_table", into="delta_table", mode="append")
+            Destination(origin="output_table", into="delta_table", mode="append")
         ]
 
     def test_invalid_stage_object(self):
@@ -456,7 +458,7 @@ class TestConfiguration:
         """
         with pytest.raises(ValueError):
             invalid_source = {
-                "data": "path/to/data",
+                "origin": "path/to/data",
                 "type": "csv",
                 "into": "temp_table",
             }

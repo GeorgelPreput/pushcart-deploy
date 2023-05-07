@@ -1,9 +1,11 @@
+import csv
 import json
 import logging
 from collections import defaultdict
+from io import StringIO
 from itertools import groupby
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import AsyncIterator, Dict, List, Optional
 
 import aiofiles
 import tomli
@@ -11,12 +13,27 @@ import yaml
 from pydantic import (
     Field,
     FilePath,
+    conint,
+    conlist,
     constr,
     dataclasses,
     root_validator,
     validate_arguments,
     validator,
 )
+
+
+async def get_transformations_from_csv(csv_path: Path | str) -> AsyncIterator[dict]:
+    if isinstance(csv_path, str):
+        csv_path = Path(csv_path)
+
+    async with aiofiles.open(csv_path, "r") as aio_file:
+        contents = await aio_file.read()
+        csv_file = StringIO(contents)
+        reader = csv.DictReader(csv_file)
+
+        for row in reader:
+            yield row
 
 
 @validate_arguments
@@ -32,7 +49,12 @@ async def get_config_from_file(settings_path: Path | str) -> dict | None:
     """
     loaders = defaultdict(
         lambda: None,
-        {".json": json.loads, ".toml": tomli.loads, ".yaml": yaml.safe_load},
+        {
+            ".json": json.loads,
+            ".toml": tomli.loads,
+            ".yaml": yaml.safe_load,
+            ".yml": yaml.safe_load,
+        },
     )
 
     log = logging.getLogger(__name__)
@@ -124,6 +146,49 @@ class Validation:
 
 
 @dataclasses.dataclass
+class ClusterAutoscale:
+    min_workers: int
+    max_workers: int
+    mode: constr(to_upper=True, strict=True, regex=r"\A(ENHANCED|LEGACY)\Z")
+
+
+@dataclasses.dataclass
+class Cluster:
+    label: constr(to_lower=True, strict=True, regex=r"\A(default|maintenance)\Z")
+    node_type_id: constr(min_length=1, strict=True)
+    # spark_conf: Optional[Dict[str, str]] = Field(default_factory=dict)
+    # aws_attributes: Optional[Dict[str, str]] = Field(default_factory=dict)
+    # driver_node_type_id: Optional[constr(min_length=1, strict=True)] = None
+    # ssh_public_keys = Optional[List[str]] = Field(default_factory=list)
+    # custom_tags = Optional[Dict[str, str]] = Field(default_factory=dict)
+    # cluster_log_conf = Optional[Dict[str, Dict[str, str]]] = Field(default_factory=dict)
+    # spark_env_vars = Optional[Dict[str, str]] = Field(default_factory=dict)
+    # init_scripts = Optional[List[Dict[str, Dict[str, str]]]] = Field(
+    #     default_factory=list
+    # )
+    # instance_pool_id = Optional[constr(min_length=1, strict=True)] = None
+    # driver_instance_pool_id = Optional[constr(min_length=1, strict=True)] = None
+    # policy_id = Optional[constr(min_length=1, strict=True)] = None
+    # num_workers = Optional[int] = None
+    # autoscale = Optional[ClusterAutoscale] = None
+
+    @root_validator(pre=True)
+    @classmethod
+    def check_only_one_of_autoscale_or_num_workers_defined(cls, values):
+        """
+        Root validator method that checks that only one of the autoscale or num_workers
+        fields is defined and that at least one of them is defined.
+        """
+        if not any(values[v] for v in ["autoscale", "num_workers"]):
+            raise ValueError(
+                "No cluster defined. Please provide either autoscale or a num_workers"
+            )
+        if all(values[t] for t in ["autoscale", "num_workers"]):
+            raise ValueError("Only one of autoscale or num_workers allowed")
+        return values
+
+
+@dataclasses.dataclass
 class Source:
     """
     The Source class is designed to represent a data source and its associated
@@ -133,7 +198,7 @@ class Source:
 
     Fields:
     The Source class has five main fields:
-    - data: represents the data source itself, and can be of type Path, AnyUrl, or
+    - origin: represents the data source itself, and can be of type Path, AnyUrl, or
       constr.
     - type: represents the type of data contained in the source, and is a string with a
       minimum length of 1.
@@ -146,10 +211,10 @@ class Source:
       field (a string that must be either "LOG", "DROP", or "FAIL").
     """
 
-    data: constr(min_length=1, strict=True)
+    origin: constr(min_length=1, strict=True)
     type: constr(min_length=1, strict=True)
     into: constr(min_length=1, strict=True)
-    params: Optional[Dict] = Field(default_factory=dict)
+    params: Optional[str] = None
     validations: Optional[List[Validation]] = Field(default_factory=list)
 
     @validator("validations")
@@ -173,7 +238,7 @@ class Transformation:
     certain criteria.
 
     Fields:
-    - data: a required string field that represents the data view to be transformed.
+    - origin: a required string field that represents the data view to be transformed.
     - into: a required string field that represents the desired output of the
       transformation.
     - config: an optional FilePath field that represents the configuration file to be
@@ -184,10 +249,26 @@ class Transformation:
       rules to be applied to the transformation.
     """
 
-    data: constr(min_length=1, strict=True)
+    origin: constr(min_length=1, strict=True)
     into: constr(min_length=1, strict=True)
-    config: Optional[FilePath] = None
+    column_order: Optional[conint(ge=1)] = None
+    source_column_name: Optional[constr(strict=True)] = None
+    source_column_type: Optional[
+        constr(
+            strict=True,
+            regex=r"\A(string|int|double|date|timestamp|boolean|struct|array|map)\Z",
+        )
+    ] = None
+    dest_column_name: Optional[constr(strict=True)] = None
+    dest_column_type: Optional[
+        constr(
+            strict=True,
+            regex=r"\A(string|int|double|date|timestamp|boolean|struct|array|map)\Z",
+        )
+    ] = None
+    transform_function: Optional[constr(strict=True)] = None
     sql_query: Optional[constr(min_length=1, strict=True)] = None
+    default_value: Optional[constr(strict=True)] = None
     validations: Optional[List[Validation]] = Field(default_factory=list)
 
     @root_validator(pre=True)
@@ -197,12 +278,20 @@ class Transformation:
         Root validator method that checks that only one of the config or sql_query
         fields is defined and that at least one of them is defined.
         """
-        if not any(values[v] for v in ["config", "sql_query"]):
+        if not any(values.get(v) for v in ["column_order", "sql_query"]):
             raise ValueError(
-                "No transformation defined. Please provide either a config or a sql_query"
+                f"""
+                No transformation defined. Please provide either a config or a sql_query.
+                Got: {values}
+                """
             )
-        if all(values[t] for t in ["config", "sql_query"]):
-            raise ValueError("Only one of config or sql_query allowed")
+        if all(values.get(t) for t in ["column_order", "sql_query"]):
+            raise ValueError(
+                f"""
+                Only one of config or sql_query allowed.
+                Got: {values}
+                """
+            )
         return values
 
     @validator("validations")
@@ -227,7 +316,7 @@ class Destination:
     no multiple validations with the same rule.
 
     Fields:
-    - data: a string that represents the data view to be written to the destination.
+    - origin: a string that represents the data view to be written to the destination.
     - into: a string that represents the destination table.
     - path: an optional string that represents the file path for the destination Delta
       table. If not set, the Delta table will be managed by Databricks
@@ -239,7 +328,7 @@ class Destination:
       rules and actions for the data.
     """
 
-    data: constr(min_length=1, strict=True)
+    origin: constr(min_length=1, strict=True)
     into: constr(min_length=1, strict=True)
     mode: constr(min_length=1, strict=True, regex=r"^(append|upsert)$")
     path: Optional[Path] = None
@@ -295,6 +384,8 @@ class Configuration:
     ensure that at least one stage is defined in the configuration file.
 
     Fields:
+    - clusters: an optional list of Cluster objects that represent the data clusters for
+      the pipeline.
     - sources: an optional list of Source objects that represent the data sources for
       the pipeline.
     - transformations: an optional list of Transformation objects that represent the
@@ -303,6 +394,7 @@ class Configuration:
       destinations for the pipeline.
     """
 
+    clusters: Optional[conlist(Cluster, max_items=1)] = None
     sources: Optional[List[Source]] = Field(default_factory=list)
     transformations: Optional[List[Transformation]] = Field(default_factory=list)
     destinations: Optional[List[Destination]] = Field(default_factory=list)
@@ -318,4 +410,34 @@ class Configuration:
             raise ValueError(
                 "No stage definition found. Please define at least one of: sources, transformations, destinations"
             )
+        return values
+
+    @root_validator(pre=True)
+    @classmethod
+    def check_all_dlt_into_objects_are_unique(cls, values):
+        """
+        Root validator that checks that no values of the "into" fields of "sources",
+        "transformations" and "destinations", taken together, overlap.
+        """
+        sources = values.get("sources", [])
+        transformations = values.get("transformations", [])
+        destinations = values.get("destinations", [])
+
+        into_values = (
+            [source["into"] for source in sources]
+            + [
+                transformation["into"]
+                for transformation in transformations
+                if transformation.get("sql_query")
+            ]
+            + [destination["into"] for destination in destinations]
+        )
+
+        duplicates = [
+            value for value in set(into_values) if into_values.count(value) > 1
+        ]
+
+        if duplicates:
+            raise ValueError(f"Duplicate 'into' values found: {', '.join(duplicates)}")
+
         return values
