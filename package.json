@@ -26,15 +26,8 @@
                             "files": [
                                 "pyproject.toml"
                             ],
-                            "from": "version = \".*\"",
-                            "to": "version = \"${nextRelease.version}\""
-                        },
-                        {
-                            "files": [
-                                "src/pushcart_deploy/__init__.py"
-                            ],
-                            "from": "__VERSION__ = \".*\"",
-                            "to": "__VERSION__ = \"${nextRelease.version}\""
+                            "from": "\nversion = \".*\"\n",
+                            "to": "\nversion = \"${nextRelease.version}\"\n"
                         }
                     ]
                 }
