@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import operator
 from functools import lru_cache
@@ -170,7 +171,7 @@ class JobSettings:
         job_settings = None
 
         if settings_path:
-            job_settings = get_config_from_file(settings_path)
+            job_settings = asyncio.run(get_config_from_file(settings_path))
 
         if not job_settings:
             self.log.info("Creating job using default settings")

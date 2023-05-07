@@ -478,14 +478,15 @@ class TestJobSettings:
             JobSettings, "_get_default_job_settings", return_value=default_settings
         )
         mocker.patch(
-            "pushcart_deploy.databricks_api.job_settings.get_config_from_file",
+            "json.loads",
             return_value=None,
         )
 
         job_settings = JobSettings(mock_api_client)
 
         result = job_settings.load_job_settings(
-            settings_path="tests/data/job_settings.json", default_settings="pipeline"
+            settings_path="tests/data/invalid_job_settings.json",
+            default_settings="pipeline",
         )
         assert result == default_settings
 
@@ -498,7 +499,7 @@ class TestJobSettings:
         """
         mocker.patch.object(ClusterApi, "__init__", return_value=None)
         mocker.patch(
-            "pushcart_deploy.databricks_api.job_settings.get_config_from_file",
+            "json.loads",
             return_value=None,
         )
 

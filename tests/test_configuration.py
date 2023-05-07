@@ -1,3 +1,4 @@
+import asyncio
 from pathlib import Path
 
 import pytest
@@ -43,24 +44,26 @@ class TestValidation:
 
 
 class TestGetConfigFromFile:
-    def test_get_config_from_file_valid_file_path(self, mocker):
+    @pytest.mark.asyncio
+    async def test_get_config_from_file_valid_file_path(self, mocker):
         """
         Tests that the function successfully loads a valid JSON/YAML/TOML file.
         """
         test_file = Path("tests/data/job_settings.json")
         test_data = {"name": "test_job", "timeout_seconds": 60}
 
-        result = get_config_from_file(test_file)
+        result = await get_config_from_file(test_file)
 
         assert result == test_data
 
-    def test_get_config_from_file_invalid_file_path(self):
+    @pytest.mark.asyncio
+    async def test_get_config_from_file_invalid_file_path(self):
         """
         Tests that the function returns None when an invalid file path is provided.
         """
         test_file = Path("invalid_path.json")
 
-        result = get_config_from_file(test_file)
+        result = await get_config_from_file(test_file)
 
         assert result is None
 
