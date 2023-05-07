@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "pushcart-deploy"
-version = "1.3.2"
+version = "1.3.3"
 description = "Deployment helper for pipeline configurations using Pushcart"
 authors = ["Georgel Preput <georgelpreput@mailbox.org>"]
 license = "GPL-3.0-or-later"
