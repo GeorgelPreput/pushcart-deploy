@@ -5,6 +5,7 @@ from itertools import groupby
 from pathlib import Path
 from typing import Dict, List, Optional
 
+import aiofiles
 import tomli
 import yaml
 from pydantic import (
@@ -19,7 +20,7 @@ from pydantic import (
 
 
 @validate_arguments
-def get_config_from_file(settings_path: Path) -> dict | None:
+async def get_config_from_file(settings_path: Path | str) -> dict | None:
     """
     Load a configuration file into a dictionary. Supported formats are JSON, YAML, and TOML.
 
@@ -30,17 +31,23 @@ def get_config_from_file(settings_path: Path) -> dict | None:
         dict | None: The configuration data as a dictionary, or None if an error occurred.
     """
     loaders = defaultdict(
-        lambda: None, {".json": json.load, ".toml": tomli.load, ".yaml": yaml.safe_load}
+        lambda: None,
+        {".json": json.loads, ".toml": tomli.loads, ".yaml": yaml.safe_load},
     )
 
     log = logging.getLogger(__name__)
     log.setLevel(logging.INFO)
 
     try:
+        if isinstance(settings_path, str):
+            settings_path = Path(settings_path)
+
         if settings_path.exists():
             ext = settings_path.suffix
-            with settings_path.open("r") as settings_file:
-                return loaders[ext](settings_file)
+            async with aiofiles.open(settings_path, "r") as settings_file:
+                contents = await settings_file.read()
+
+                return loaders[ext](contents)
     except FileNotFoundError:
         log.warning(f"File not found: {settings_path.as_posix()}")
     except OSError:
