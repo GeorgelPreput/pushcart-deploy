@@ -167,7 +167,7 @@ class TestSource:
         origin = "./tests/data/example.csv"
         type = "csv"
         into = "my_view"
-        params = {"delimiter": ","}
+        params = '{"delimiter": ","}'
         validation_rule = "column_1 > 0"
         validation_action = "LOG"
         validations = [
@@ -207,7 +207,7 @@ class TestSource:
             origin="data/example.csv",
             type="csv",
             into="my_view",
-            params={"delimiter": ","},
+            params='{"delimiter": ","}',
         )
         source_with_validations = Source(
             origin="data/example.csv",
@@ -229,7 +229,11 @@ class TestTransformation:
         transformation = Transformation(
             origin="some data",
             into="some output",
-            config="./tests/data/example.yaml",
+            column_order=1,
+            source_column_name="column_1",
+            source_column_type="string",
+            dest_column_name="ColumnOne",
+            dest_column_type="string",
             sql_query=None,
             validations=[
                 {"validation_rule": "rule1", "validation_action": "LOG"},
@@ -238,7 +242,11 @@ class TestTransformation:
         )
         assert transformation.origin == "some data"
         assert transformation.into == "some output"
-        assert transformation.config == Path("./tests/data/example.yaml")
+        assert transformation.column_order == 1
+        assert transformation.source_column_name == "column_1"
+        assert transformation.source_column_type == "string"
+        assert transformation.dest_column_name == "ColumnOne"
+        assert transformation.dest_column_type == "string"
         assert transformation.validations[0].validation_rule == "rule1"
         assert transformation.validations[0].validation_action == "LOG"
         assert transformation.validations[1].validation_rule == "rule2"
@@ -286,7 +294,7 @@ class TestTransformation:
             Transformation(
                 origin="my_input_view",
                 into="my_output_view",
-                config="./tests/data/example.yaml",
+                column_order=1,
                 sql_query="SELECT * FROM table",
             )
 
@@ -310,7 +318,7 @@ class TestTransformation:
             Transformation(
                 origin="my_input_view",
                 into="my_output_view",
-                config="./tests/data/example.yaml",
+                column_order=1,
                 validations=[validation1, validation2],
             )
         assert "Different actions for the same validation" in str(e.value)
