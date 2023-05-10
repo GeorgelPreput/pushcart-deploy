@@ -202,7 +202,7 @@ class Source:
       constr.
     - type: represents the type of data contained in the source, and is a string with a
       minimum length of 1.
-    - into: represents the destination for the data, and is a string with a minimum
+    - target: represents the destination for the data, and is a string with a minimum
       length of 1.
     - params: represents optional parameters associated with the data source, and is a
       dictionary.
@@ -213,7 +213,7 @@ class Source:
 
     origin: constr(min_length=1, strict=True)
     type: constr(min_length=1, strict=True)
-    into: constr(min_length=1, strict=True)
+    target: constr(min_length=1, strict=True)
     params: Optional[str] = None
     validations: Optional[List[Validation]] = Field(default_factory=list)
 
@@ -239,7 +239,7 @@ class Transformation:
 
     Fields:
     - origin: a required string field that represents the data view to be transformed.
-    - into: a required string field that represents the desired output of the
+    - target: a required string field that represents the desired output of the
       transformation.
     - config: an optional FilePath field that represents the configuration file to be
       used for the transformation.
@@ -250,7 +250,7 @@ class Transformation:
     """
 
     origin: constr(min_length=1, strict=True)
-    into: constr(min_length=1, strict=True)
+    target: constr(min_length=1, strict=True)
     column_order: Optional[conint(ge=1)] = None
     source_column_name: Optional[constr(strict=True)] = None
     source_column_type: Optional[
@@ -317,7 +317,7 @@ class Destination:
 
     Fields:
     - origin: a string that represents the data view to be written to the destination.
-    - into: a string that represents the destination table.
+    - target: a string that represents the destination table.
     - path: an optional string that represents the file path for the destination Delta
       table. If not set, the Delta table will be managed by Databricks
     - mode: a string that represents the mode of writing (append or upsert).
@@ -329,7 +329,7 @@ class Destination:
     """
 
     origin: constr(min_length=1, strict=True)
-    into: constr(min_length=1, strict=True)
+    target: constr(min_length=1, strict=True)
     mode: constr(min_length=1, strict=True, regex=r"^(append|upsert)$")
     path: Optional[Path] = None
     keys: Optional[List[constr(min_length=1, strict=True)]] = Field(
@@ -414,30 +414,32 @@ class Configuration:
 
     @root_validator(pre=True)
     @classmethod
-    def check_all_dlt_into_objects_are_unique(cls, values):
+    def check_all_dlt_target_objects_are_unique(cls, values):
         """
-        Root validator that checks that no values of the "into" fields of "sources",
+        Root validator that checks that no values of the "target" fields of "sources",
         "transformations" and "destinations", taken together, overlap.
         """
         sources = values.get("sources", [])
         transformations = values.get("transformations", [])
         destinations = values.get("destinations", [])
 
-        into_values = (
-            [source["into"] for source in sources]
+        target_values = (
+            [source["target"] for source in sources]
             + [
-                transformation["into"]
+                transformation["target"]
                 for transformation in transformations
                 if transformation.get("sql_query")
             ]
-            + [destination["into"] for destination in destinations]
+            + [destination["target"] for destination in destinations]
         )
 
         duplicates = [
-            value for value in set(into_values) if into_values.count(value) > 1
+            value for value in set(target_values) if target_values.count(value) > 1
         ]
 
         if duplicates:
-            raise ValueError(f"Duplicate 'into' values found: {', '.join(duplicates)}")
+            raise ValueError(
+                f"Duplicate 'target' values found: {', '.join(duplicates)}"
+            )
 
         return values
