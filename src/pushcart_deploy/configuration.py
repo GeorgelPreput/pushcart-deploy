@@ -11,8 +11,8 @@ import aiofiles
 import tomli
 import yaml
 from pydantic import (
+    BaseModel,
     Field,
-    FilePath,
     conint,
     conlist,
     constr,
@@ -156,21 +156,21 @@ class ClusterAutoscale:
 class Cluster:
     label: constr(to_lower=True, strict=True, regex=r"\A(default|maintenance)\Z")
     node_type_id: constr(min_length=1, strict=True)
-    # spark_conf: Optional[Dict[str, str]] = Field(default_factory=dict)
-    # aws_attributes: Optional[Dict[str, str]] = Field(default_factory=dict)
-    # driver_node_type_id: Optional[constr(min_length=1, strict=True)] = None
-    # ssh_public_keys = Optional[List[str]] = Field(default_factory=list)
-    # custom_tags = Optional[Dict[str, str]] = Field(default_factory=dict)
-    # cluster_log_conf = Optional[Dict[str, Dict[str, str]]] = Field(default_factory=dict)
-    # spark_env_vars = Optional[Dict[str, str]] = Field(default_factory=dict)
-    # init_scripts = Optional[List[Dict[str, Dict[str, str]]]] = Field(
-    #     default_factory=list
-    # )
-    # instance_pool_id = Optional[constr(min_length=1, strict=True)] = None
-    # driver_instance_pool_id = Optional[constr(min_length=1, strict=True)] = None
-    # policy_id = Optional[constr(min_length=1, strict=True)] = None
-    # num_workers = Optional[int] = None
-    # autoscale = Optional[ClusterAutoscale] = None
+    spark_conf: Optional[Dict[str, str]] = Field(default_factory=dict)
+    aws_attributes: Optional[Dict[str, str]] = Field(default_factory=dict)
+    driver_node_type_id: Optional[constr(min_length=1, strict=True)] = None
+    ssh_public_keys: Optional[List[str]] = Field(default_factory=list)
+    custom_tags: Optional[Dict[str, str]] = Field(default_factory=dict)
+    cluster_log_conf: Optional[Dict[str, Dict[str, str]]] = Field(default_factory=dict)
+    spark_env_vars: Optional[Dict[str, str]] = Field(default_factory=dict)
+    init_scripts: Optional[List[Dict[str, Dict[str, str]]]] = Field(
+        default_factory=list
+    )
+    instance_pool_id: Optional[constr(min_length=1, strict=True)] = None
+    driver_instance_pool_id: Optional[constr(min_length=1, strict=True)] = None
+    policy_id: Optional[constr(min_length=1, strict=True)] = None
+    num_workers: Optional[int] = None
+    autoscale: Optional[ClusterAutoscale] = None
 
     @root_validator(pre=True)
     @classmethod
