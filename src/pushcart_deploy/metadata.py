@@ -45,24 +45,23 @@ class Metadata:
                 ):
                     transformation["config"] = str(
                         file_path_obj.parent.joinpath(
-                            Path(transformation["config"])
-                        ).resolve()
+                            Path(transformation["config"]),
+                        ).resolve(),
                     )
 
         return config
 
-    async def _collect_pipeline_configs(self):
+    async def _collect_pipeline_configs(self) -> list:
         pipeline_files = []
 
         for extensions in ["*.json", "*.toml", "*.yaml", "*.yml"]:
             pipeline_files.extend(
-                glob(f"{self.config_dir}/pipelines/**/{extensions}", recursive=True)
+                glob(f"{self.config_dir}/pipelines/**/{extensions}", recursive=True),
             )
 
         pipeline_tasks = [self._load_pipeline_with_metadata(f) for f in pipeline_files]
-        pipeline_configs = await asyncio.gather(*pipeline_tasks)
 
-        return pipeline_configs
+        return await asyncio.gather(*pipeline_tasks)
 
     @staticmethod
     async def _enrich_sources_config(sources_config: list) -> None:
@@ -88,7 +87,7 @@ class Metadata:
                             {
                                 "validation_rule": row["validation_rule"],
                                 "validation_action": row["validation_action"],
-                            }
+                            },
                         ]
                         del row["validation_rule"]
                         del row["validation_action"]
@@ -113,13 +112,14 @@ class Metadata:
                 for pipeline_config in pipeline_configs
                 for stage_name, stage_config in pipeline_config.items()
                 if stage_name in enrichment_func
-            ]
+            ],
         )
 
     @staticmethod
     def _group_pipeline_configs(pipeline_configs: list) -> list:
         sorted_pipeline_configs = sorted(
-            pipeline_configs, key=itemgetter("target_schema_name", "pipeline_name")
+            pipeline_configs,
+            key=itemgetter("target_schema_name", "pipeline_name"),
         )
         grouped_elements = groupby(
             sorted_pipeline_configs,
@@ -133,7 +133,8 @@ class Metadata:
             for d in group:
                 for k, v in d.items():
                     merged_pipeline_stages_dict[k].extend(v) if isinstance(
-                        v, list
+                        v,
+                        list,
                     ) else merged_pipeline_stages_dict[k].append(v)
 
             merged_pipeline_stages_dict["target_schema_name"] = schema
@@ -166,15 +167,18 @@ class Metadata:
                         for stage_element in asdict(pipeline_config)[stage_name]
                     ],
                     drop_empty=True,
-                )
+                ),
             )
             stage_df.write.option("mergeSchema", "true").saveAsTable(
-                f"pushcart.{stage_name}", format="delta", mode="overwrite"
+                f"pushcart.{stage_name}",
+                format="delta",
+                mode="overwrite",
             )
 
             self.log.info(f"Wrote {stage_name} metadata table.")
 
     def create_backend_objects(self) -> None:
+        """Create metadata tables holding pipeline stages."""
         pipeline_configs = asyncio.run(self._collect_pipeline_configs())
         asyncio.run(self._enrich_pipeline_configs(pipeline_configs))
         validated_pipeline_configs = self._validate_pipeline_configs(pipeline_configs)

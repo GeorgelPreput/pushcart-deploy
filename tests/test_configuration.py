@@ -1,4 +1,3 @@
-import asyncio
 from pathlib import Path
 
 import pytest
@@ -19,36 +18,29 @@ from pushcart_deploy.configuration import (
 class TestValidation:
     @given(st.builds(Validation))
     def test_validation_happy_path(self, validation):
-        """
-        Tests that the validation_action field matches one of the three allowed values
+        """Tests that the validation_action field matches one of the three allowed values
         and that validation_rule is a string.
         """
         assert validation.validation_action in ["LOG", "DROP", "FAIL"]
         assert isinstance(validation.validation_rule, str)
 
     def test_validation_rule_string(self):
-        """
-        Tests that the validation_rule field is a string.
-        """
+        """Tests that the validation_rule field is a string."""
         with pytest.raises(ValueError) as e:
             Validation(validation_rule=123, validation_action="LOG")
         assert "str type expected" in str(e.value)
 
     def test_validation_rule_min_length(self):
-        """
-        Tests that the validation_rule field has a minimum length of 1.
-        """
+        """Tests that the validation_rule field has a minimum length of 1."""
         with pytest.raises(ValueError) as e:
             Validation(validation_rule="", validation_action="LOG")
         assert "ensure this value has at least 1 characters" in str(e.value)
 
 
 class TestGetConfigFromFile:
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     async def test_get_config_from_file_valid_file_path(self, mocker):
-        """
-        Tests that the function successfully loads a valid JSON/YAML/TOML file.
-        """
+        """Tests that the function successfully loads a valid JSON/YAML/TOML file."""
         test_file = Path("tests/data/job_settings.json")
         test_data = {"name": "test_job", "timeout_seconds": 60}
 
@@ -56,11 +48,9 @@ class TestGetConfigFromFile:
 
         assert result == test_data
 
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     async def test_get_config_from_file_invalid_file_path(self):
-        """
-        Tests that the function returns None when an invalid file path is provided.
-        """
+        """Tests that the function returns None when an invalid file path is provided."""
         test_file = Path("invalid_path.json")
 
         result = await get_config_from_file(test_file)
@@ -70,9 +60,7 @@ class TestGetConfigFromFile:
 
 class TestGetMultipleValidationsWithSameRule:
     def test_one_rule_multiple_validations(self):
-        """
-        Tests that the function groups validations correctly when the validations list contains only one rule with multiple validations.
-        """
+        """Tests that the function groups validations correctly when the validations list contains only one rule with multiple validations."""
         validations = [
             {"validation_rule": "rule1", "validation_action": "action1"},
             {"validation_rule": "rule1", "validation_action": "action2"},
@@ -82,9 +70,7 @@ class TestGetMultipleValidationsWithSameRule:
         assert _get_multiple_validations_with_same_rule(validations) == expected_output
 
     def test_different_rules(self):
-        """
-        Tests that the function groups validations correctly when the validations list contains validations with different rules.
-        """
+        """Tests that the function groups validations correctly when the validations list contains validations with different rules."""
         validations = [
             {"validation_rule": "rule1", "validation_action": "action1"},
             {"validation_rule": "rule2", "validation_action": "action2"},
@@ -98,25 +84,19 @@ class TestGetMultipleValidationsWithSameRule:
         assert _get_multiple_validations_with_same_rule(validations) == expected_output
 
     def test_empty_list(self):
-        """
-        Tests that the function returns an empty dictionary when the validations list is empty.
-        """
+        """Tests that the function returns an empty dictionary when the validations list is empty."""
         validations = []
         expected_output = {}
         assert _get_multiple_validations_with_same_rule(validations) == expected_output
 
     def test_one_validation(self):
-        """
-        Tests that the function returns an empty dictionary when the validations list contains only one validation.
-        """
+        """Tests that the function returns an empty dictionary when the validations list contains only one validation."""
         validations = [{"validation_rule": "rule1", "validation_action": "action1"}]
         result = _get_multiple_validations_with_same_rule(validations)
         assert result == {}
 
     def test_invalid_data_types(self):
-        """
-        Tests that the function handles invalid data types in the validations list.
-        """
+        """Tests that the function handles invalid data types in the validations list."""
         validations = [
             {"validation_rule": "rule1", "validation_action": "action1"},
             "invalid_data",
@@ -126,9 +106,7 @@ class TestGetMultipleValidationsWithSameRule:
             _get_multiple_validations_with_same_rule(validations)
 
     def test_duplicate_validations(self):
-        """
-        Tests that the function handles duplicate validations in the validations list.
-        """
+        """Tests that the function handles duplicate validations in the validations list."""
         validations = [
             {"validation_rule": "rule1", "validation_action": "action1"},
             {"validation_rule": "rule2", "validation_action": "action2"},
@@ -149,21 +127,17 @@ class TestGetMultipleValidationsWithSameRule:
 
 class TestSource:
     def test_create_source_with_valid_data(self):
-        """
-        Tests that a source object can be created with valid data, type, and target fields.
-        """
+        """Tests that a source object can be created with valid data, type, and target fields."""
         origin = "./tests/data/example.csv"
         type = "csv"
         target = "my_view"
-        source = Source(origin=origin, type=type, target=target)
+        source = Source(origin=origin, datatype=type, target=target)
         assert source.origin == origin
-        assert source.type == type
+        assert source.datatype == type
         assert source.target == target
 
     def test_create_source_with_optional_params_and_validations(self):
-        """
-        Tests that a source object can be created with optional params and validations fields.
-        """
+        """Tests that a source object can be created with optional params and validations fields."""
         origin = "./tests/data/example.csv"
         type = "csv"
         target = "my_view"
@@ -171,51 +145,53 @@ class TestSource:
         validation_rule = "column_1 > 0"
         validation_action = "LOG"
         validations = [
-            {"validation_rule": validation_rule, "validation_action": validation_action}
+            {
+                "validation_rule": validation_rule,
+                "validation_action": validation_action,
+            },
         ]
         source = Source(
             origin=origin,
-            type=type,
+            datatype=type,
             target=target,
             params=params,
             validations=validations,
         )
         assert source.origin == origin
-        assert source.type == type
+        assert source.datatype == type
         assert source.target == target
         assert source.params == params
         assert source.validations == [
             Validation(
-                validation_rule=validation_rule, validation_action=validation_action
-            )
+                validation_rule=validation_rule,
+                validation_action=validation_action,
+            ),
         ]
 
     def test_create_source_with_invalid_data(self):
-        """
-        Tests that a source object cannot be created with empty strings in the data,
+        """Tests that a source object cannot be created with empty strings in the data,
         type and target fields.
         """
         with pytest.raises(ValueError):
-            Source(origin="", type="csv", target="my_view")
+            Source(origin="", datatype="csv", target="my_view")
         with pytest.raises(ValueError):
-            Source(origin="./tests/data/example.csv", type="", target="my_view")
+            Source(origin="./tests/data/example.csv", datatype="", target="my_view")
         with pytest.raises(ValueError):
-            Source(origin="./tests/data/example.csv", type="csv", target="")
+            Source(origin="./tests/data/example.csv", datatype="csv", target="")
 
     def test_source_allows_optional_params_and_validations(self):
-        """
-        Test that the Source class allows for optional parameters and validations to be
-        associated with the data source
+        """Test that the Source class allows for optional parameters and validations to be
+        associated with the data source.
         """
         source_with_params = Source(
             origin="data/example.csv",
-            type="csv",
+            datatype="csv",
             target="my_view",
             params='{"delimiter": ","}',
         )
         source_with_validations = Source(
             origin="data/example.csv",
-            type="csv",
+            datatype="csv",
             target="my_view",
             validations=[Validation(validation_rule="rule1", validation_action="LOG")],
         )
@@ -226,8 +202,7 @@ class TestSource:
 
 class TestTransformation:
     def test_transformation_with_config_and_validations(self):
-        """
-        Tests that a transformation with a config file and validations is correctly
+        """Tests that a transformation with a config file and validations is correctly
         instantiated and validated.
         """
         transformation = Transformation(
@@ -257,8 +232,7 @@ class TestTransformation:
         assert transformation.validations[1].validation_action == "DROP"
 
     def test_transformation_without_validations(self):
-        """
-        Tests that a transformation without validations is correctly instantiated and
+        """Tests that a transformation without validations is correctly instantiated and
         validated.
         """
         transformation = Transformation(
@@ -272,8 +246,7 @@ class TestTransformation:
         assert transformation.validations == []
 
     def test_transformation_with_empty_fields(self):
-        """
-        Tests that a transformation with empty origin or target fields is correctly
+        """Tests that a transformation with empty origin or target fields is correctly
         validated.
         """
         with pytest.raises(ValueError):
@@ -290,8 +263,7 @@ class TestTransformation:
             )
 
     def test_transformation_with_both_config_and_sql_query_defined(self):
-        """
-        Tests that a transformation with both config and sql query fields defined is
+        """Tests that a transformation with both config and sql query fields defined is
         correctly validated.
         """
         with pytest.raises(ValueError):
@@ -303,16 +275,14 @@ class TestTransformation:
             )
 
     def test_transformation_with_no_config_or_sql_query_defined(self):
-        """
-        Tests that a transformation with neither config nor sql query fields defined is
+        """Tests that a transformation with neither config nor sql query fields defined is
         correctly validated.
         """
         with pytest.raises(ValueError):
             Transformation(origin="test", target="test")
 
     def test_multiple_validations_with_same_rule(self):
-        """
-        Tests that multiple validation objects with the same validation rule are
+        """Tests that multiple validation objects with the same validation rule are
         correctly handled.
         """
         validation1 = Validation(validation_rule="rule1", validation_action="LOG")
@@ -330,9 +300,7 @@ class TestTransformation:
 
 class TestDestination:
     def test_valid_input_data(self):
-        """
-        Tests that the destination class can be instantiated with valid input data.
-        """
+        """Tests that the destination class can be instantiated with valid input data."""
         dest = Destination(
             origin="my_data",
             target="my_table",
@@ -354,8 +322,7 @@ class TestDestination:
         assert len(dest.validations) == 2
 
     def test_missing_required_fields(self):
-        """
-        Tests that the destination class raises a validation error when required fields
+        """Tests that the destination class raises a validation error when required fields
         are missing.
         """
         with pytest.raises(TypeError):
@@ -364,8 +331,7 @@ class TestDestination:
             Destination(origin="my_data", mode="append", target=None)
 
     def test_invalid_mode_value(self):
-        """
-        Tests that the destination class raises a ValueError when an invalid mode value
+        """Tests that the destination class raises a ValueError when an invalid mode value
         is provided.
         """
         with pytest.raises(ValueError):
@@ -377,8 +343,7 @@ class TestDestination:
             )
 
     def test_missing_keys_or_sequence_by_for_upsert(self):
-        """
-        Tests that the destination class raises a ValueError when mode is upsert but
+        """Tests that the destination class raises a ValueError when mode is upsert but
         keys or sequence_by fields are missing.
         """
         with pytest.raises(KeyError):
@@ -390,8 +355,7 @@ class TestDestination:
             )
 
     def test_invalid_input_data_for_fields_with_constraints(self):
-        """
-        Tests that the destination class raises a ValueError when invalid input data is
+        """Tests that the destination class raises a ValueError when invalid input data is
         provided for fields with constraints.
         """
         with pytest.raises(ValueError):
@@ -405,8 +369,7 @@ class TestDestination:
             )
 
     def test_multiple_validations_with_same_rule(self):
-        """
-        Tests that the destination class raises a ValueError when there are multiple
+        """Tests that the destination class raises a ValueError when there are multiple
         validations with the same rule.
         """
         with pytest.raises(ValueError):
@@ -426,22 +389,20 @@ class TestDestination:
 
 class TestConfiguration:
     def test_all_fields_defined(self):
-        """
-        Tests that a configuration object can be created with all three fields defined.
-        """
+        """Tests that a configuration object can be created with all three fields defined."""
         config_dict = {
             "sources": [
-                {"origin": "path/to/data", "type": "csv", "target": "temp_table"}
+                {"origin": "path/to/data", "type": "csv", "target": "temp_table"},
             ],
             "transformations": [
                 {
                     "origin": "temp_table",
                     "target": "output_table",
                     "sql_query": "SELECT * FROM temp_table",
-                }
+                },
             ],
             "destinations": [
-                {"origin": "output_table", "target": "delta_table", "mode": "append"}
+                {"origin": "output_table", "target": "delta_table", "mode": "append"},
             ],
         }
         config = Configuration(**config_dict)
@@ -449,25 +410,23 @@ class TestConfiguration:
         assert config.sources == [
             Source(
                 origin="path/to/data",
-                type="csv",
+                datatype="csv",
                 target="temp_table",
-            )
+            ),
         ]
         assert config.transformations == [
             Transformation(
                 origin="temp_table",
                 target="output_table",
                 sql_query="SELECT * FROM temp_table",
-            )
+            ),
         ]
         assert config.destinations == [
-            Destination(origin="output_table", target="delta_table", mode="append")
+            Destination(origin="output_table", target="delta_table", mode="append"),
         ]
 
     def test_invalid_stage_object(self):
-        """
-        Tests that a valueerror is raised when an invalid stage object is provided to the configuration class.
-        """
+        """Tests that a valueerror is raised when an invalid stage object is provided to the configuration class."""
         with pytest.raises(ValueError):
             invalid_source = {
                 "origin": "path/to/data",
@@ -477,9 +436,7 @@ class TestConfiguration:
             Configuration(**{"sources": invalid_source})
 
     def test_empty_configuration_object(self):
-        """
-        Tests that an empty configuration object cannot be created.
-        """
+        """Tests that an empty configuration object cannot be created."""
         with pytest.raises(ValueError) as e:
             Configuration()
 

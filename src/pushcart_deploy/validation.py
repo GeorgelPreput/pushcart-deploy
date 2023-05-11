@@ -3,20 +3,20 @@ from pydantic import dataclasses, validator
 
 
 def validate_databricks_api_client(client: ApiClient = None) -> ApiClient:
-    """
-    Validate the input parameter 'client' of type 'ApiClient' and ensure that it has
-    been properly initialized before returning it.
-    """
+    """Validate the input parameter 'client' of type 'ApiClient' and ensure that it has been properly initialized before returning it."""
     if not client:
-        raise ValueError("ApiClient must have a value")
+        msg = "ApiClient must have a value"
+        raise ValueError(msg)
 
     if not isinstance(client, ApiClient):
+        msg = "Client must be of type databricks_cli.sdk.api_client.ApiClient"
         raise TypeError(
-            "Client must be of type databricks_cli.sdk.api_client.ApiClient"
+            msg,
         )
 
     if not client.url or not client.default_headers:
-        raise ValueError("ApiClient has not been properly initialized")
+        msg = "ApiClient has not been properly initialized"
+        raise ValueError(msg)
 
     return client
 
@@ -32,13 +32,14 @@ class HttpAuthToken:
 
     @validator("Authorization")
     @classmethod
-    def check_authorization(cls, value):
+    def check_authorization(cls, value: str) -> str:
         if not value.startswith("Bearer "):
-            raise ValueError("Authorization must use a bearer token")
+            msg = "Authorization must use a bearer token"
+            raise ValueError(msg)
         return value
 
 
-def _is_empty(obj) -> bool:
+def _is_empty(obj: str | dict | list) -> bool:
     if isinstance(obj, str) and not obj.strip():
         return True
     if (
@@ -56,8 +57,10 @@ def _is_empty(obj) -> bool:
     ):
         return True
 
+    return False
 
-def _sanitize_empty_elements(l: list, drop_empty=False) -> list:
+
+def _sanitize_empty_elements(list_to_sanitize: list, drop_empty: bool = False) -> list:
     elements = [
         None
         if _is_empty(v)
@@ -66,7 +69,7 @@ def _sanitize_empty_elements(l: list, drop_empty=False) -> list:
         else _sanitize_empty_elements(v, drop_empty)
         if isinstance(v, list)
         else v
-        for v in l
+        for v in list_to_sanitize
     ]
     if drop_empty:
         return [e for e in elements if e is not None]
@@ -74,7 +77,7 @@ def _sanitize_empty_elements(l: list, drop_empty=False) -> list:
         return elements
 
 
-def _santize_empty_fields(d: dict, drop_empty=False) -> dict:
+def _santize_empty_fields(dict_to_sanitize: dict, drop_empty: bool = False) -> dict:
     fields = {
         k.replace(".", "_"): None
         if _is_empty(v)
@@ -83,7 +86,7 @@ def _santize_empty_fields(d: dict, drop_empty=False) -> dict:
         else _sanitize_empty_elements(v, drop_empty)
         if isinstance(v, list)
         else v
-        for k, v in d.items()
+        for k, v in dict_to_sanitize.items()
     }
     if drop_empty:
         return {k: v for k, v in fields.items() if v is not None}
@@ -91,10 +94,11 @@ def _santize_empty_fields(d: dict, drop_empty=False) -> dict:
         return fields
 
 
-def sanitize_empty_objects(o, drop_empty=False):
-    if isinstance(o, dict):
-        return _santize_empty_fields(o, drop_empty)
-    elif isinstance(o, list):
-        return _sanitize_empty_elements(o, drop_empty)
+def sanitize_empty_objects(obj: dict | list, drop_empty: bool = False) -> dict | list:
+    if isinstance(obj, dict):
+        return _santize_empty_fields(obj, drop_empty)
+    elif isinstance(obj, list):
+        return _sanitize_empty_elements(obj, drop_empty)
     else:
-        raise TypeError(f"Object must be a dict or a list. Got {type(o)}: {str(o)}")
+        msg = f"Object must be a dict or a list. Got {type(obj)}: {str(obj)}"
+        raise TypeError(msg)

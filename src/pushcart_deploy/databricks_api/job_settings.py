@@ -3,7 +3,6 @@ import logging
 import operator
 from functools import lru_cache
 from pathlib import Path
-from typing import Optional
 
 from databricks_cli.clusters.api import ClusterApi
 from databricks_cli.sdk.api_client import ApiClient
@@ -17,16 +16,9 @@ from pushcart_deploy.validation import (
 
 
 @lru_cache(maxsize=1)
-@validate_arguments(config=dict(arbitrary_types_allowed=True))
+@validate_arguments(config={"arbitrary_types_allowed": True})
 def _get_smallest_cluster_node_type(client: ApiClient = None) -> str:
-    """
-    Retrieve the smallest Photon-capable cluster node type from a Databricks cluster
-    using the Databricks CLI and SDK APIs. The function caches the result to improve
-    performance.
-
-    Inputs:
-    - client: an instance of the ApiClient class from the Databricks CLI SDK.
-    """
+    """Retrieve the smallest Photon-capable cluster node type from a Databricks cluster."""
     cluster_api = ClusterApi(client)
 
     log = logging.getLogger(__name__)
@@ -46,7 +38,8 @@ def _get_smallest_cluster_node_type(client: ApiClient = None) -> str:
         return None
 
     node = sorted(
-        node_types, key=operator.itemgetter("num_cores", "memory_mb", "num_gpus")
+        node_types,
+        key=operator.itemgetter("num_cores", "memory_mb", "num_gpus"),
     )[0]["node_type_id"]
     log.info(f"Using node type ID: {node}")
 
@@ -54,20 +47,9 @@ def _get_smallest_cluster_node_type(client: ApiClient = None) -> str:
 
 
 @lru_cache(maxsize=1)
-@validate_arguments(config=dict(arbitrary_types_allowed=True))
+@validate_arguments(config={"arbitrary_types_allowed": True})
 def _get_newest_spark_version(client: ApiClient = None) -> str:
-    """
-    Retrieve the newest version of Apache Spark that is not labeled as "ML" and is an
-    LTS version. The function uses the Databricks CLI and API to retrieve and filter
-    the available Spark versions. The function caches the result to improve performance
-
-    Inputs:
-    - client: an instance of the ApiClient class from the Databricks CLI SDK.
-
-    Additional aspects:
-    - The function assumes that there is at least one Spark version that meets the
-      specified criteria, otherwise it will raise an exception.
-    """
+    """Retrieve the newest version of Apache Spark that is not labeled as "ML" and is an LTS version."""
     cluster_api = ClusterApi(client)
 
     log = logging.getLogger(__name__)
@@ -80,7 +62,7 @@ def _get_newest_spark_version(client: ApiClient = None) -> str:
     ]
 
     if not spark_versions:
-        log.error(f"No spark versions.")
+        log.error("No spark versions.")
         return None
 
     version = sorted(
@@ -94,23 +76,12 @@ def _get_newest_spark_version(client: ApiClient = None) -> str:
 
 
 @lru_cache(maxsize=50)
-@validate_arguments(config=dict(arbitrary_types_allowed=True))
+@validate_arguments(config={"arbitrary_types_allowed": True})
 def _get_existing_cluster_id(
-    client: ApiClient = None, cluster_name: constr(min_length=1, strict=True) = None
+    client: ApiClient = None,
+    cluster_name: constr(min_length=1, strict=True) = None,
 ) -> str:
-    """
-    Retrieve the ID of an existing Databricks cluster by its name using the Databricks
-    API. The function caches the result to improve performance
-
-    Inputs:
-    - client: an instance of the ApiClient class from the Databricks CLI SDK
-    - `cluster_name`: the name of the cluster to retrieve the ID for
-
-    Additional aspects:
-    - The `constr` class from the `pydantic` library is used to enforce input
-    validation for the `cluster_name` input, requiring a string with a minimum length
-    of 1 and no leading or trailing whitespace.
-    """
+    """Retrieve the ID of an existing Databricks cluster by its name."""
     cluster_api = ClusterApi(client)
 
     log = logging.getLogger(__name__)
@@ -131,43 +102,36 @@ def _get_existing_cluster_id(
 
 @dataclasses.dataclass(config=PydanticArbitraryTypesConfig)
 class JobSettings:
-    """
-    Manages job settings for Databricks jobs. It provides methods for loading job
-    settings from a JSON file or string, as well as for retrieving default job settings
-    for checkpoint, pipeline, and release jobs.
+    """Manages job settings for Databricks jobs.
 
-    Fields:
-    - client: instance of ApiClient used for interacting with the Databricks API
-    - log: logger instance used for logging messages during job settings loading and
-      validation
+    Provides methods for loading job settings from a JSON file or string, as well as
+    for retrieving default job settings for checkpoint, pipeline, and release jobs.
     """
 
     client: ApiClient
 
     @validator("client")
     @classmethod
-    def check_api_client(cls, value):
-        """
-        Validator method that ensures the provided ApiClient is valid
-        """
+    def check_api_client(cls, value: ApiClient) -> ApiClient:
+        """Validate the provided ApiClient."""
         return validate_databricks_api_client(value)
 
     def __post_init_post_parse__(self):
         self.log = logging.getLogger(__name__)
         self.log.setLevel(logging.INFO)
 
-    @validate_arguments(config=dict(arbitrary_types_allowed=True))
+    @validate_arguments(config={"arbitrary_types_allowed": True})
     def load_job_settings(
         self,
-        settings_path: Optional[Path] = None,
-        default_settings: Optional[
-            constr(min_length=1, strict=True, regex=r"^(checkpoint|pipeline|release)$")
-        ] = None,
+        settings_path: Path | None = None,
+        default_settings: constr(
+            min_length=1,
+            strict=True,
+            regex="^(checkpoint|pipeline|release)$",
+        )
+        | None = None,
     ) -> dict:
-        """
-        Load job settings from a file, or retrieve default job settings if none are
-        provided
-        """
+        """Load job settings from a file, or retrieve default job settings if none are provided."""
         job_settings = None
 
         if settings_path:
@@ -177,8 +141,9 @@ class JobSettings:
             self.log.info("Creating job using default settings")
 
             if settings_path and not default_settings:
+                msg = "Failed to load provided job settings, and default settings were not specified."
                 raise RuntimeError(
-                    "Failed to load provided job settings, and default settings were not specified."
+                    msg,
                 )
 
             job_settings = self._get_default_job_settings(default_settings)
@@ -188,13 +153,12 @@ class JobSettings:
     def _get_default_job_settings(
         self,
         settings_name: constr(
-            min_length=1, strict=True, regex=r"^(checkpoint|pipeline|release)$"
+            min_length=1,
+            strict=True,
+            regex=r"^(checkpoint|pipeline|release)$",
         ),
     ) -> dict:
-        """
-        Helper method for retrieving default job settings for checkpoint, pipeline,
-        and release jobs
-        """
+        """Retrieve default job settings for checkpoint, pipeline, and release jobs."""
         settings_map = {
             "checkpoint": _get_default_checkpoint_job_settings,
             "pipeline": _get_default_pipeline_job_settings,
@@ -204,7 +168,8 @@ class JobSettings:
         settings_getter = settings_map.get(settings_name)
 
         if not settings_getter:
-            raise ValueError("Could not find default settings for {settings_name}")
+            msg = "Could not find default settings for {settings_name}"
+            raise ValueError(msg)
 
         return settings_getter(self.client)
 
@@ -237,7 +202,7 @@ def _get_default_release_job_settings(client: ApiClient = None) -> dict:
                 "retry_on_timeout": False,
                 "timeout_seconds": 0,
                 "email_notifications": {},
-            }
+            },
         ],
         "job_clusters": [
             {
@@ -255,7 +220,7 @@ def _get_default_release_job_settings(client: ApiClient = None) -> dict:
                     "runtime_engine": "PHOTON",
                     "num_workers": 0,
                 },
-            }
+            },
         ],
         "format": "MULTI_TASK",
     }

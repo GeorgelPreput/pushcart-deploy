@@ -2,16 +2,15 @@ import csv
 import json
 import logging
 from collections import defaultdict
+from collections.abc import AsyncIterator
 from io import StringIO
 from itertools import groupby
 from pathlib import Path
-from typing import AsyncIterator, Dict, List, Optional
 
 import aiofiles
 import tomli
 import yaml
 from pydantic import (
-    BaseModel,
     Field,
     conint,
     conlist,
@@ -24,6 +23,23 @@ from pydantic import (
 
 
 async def get_transformations_from_csv(csv_path: Path | str) -> AsyncIterator[dict]:
+    """Return transformations from the metadata .csv line-by-line.
+
+    Parameters
+    ----------
+    csv_path : Path | str
+        Path to an existing .csv file
+
+    Returns
+    -------
+    AsyncIterator[dict]
+        Iterates over transformation specifications in the input file
+
+    Yields
+    ------
+    Iterator[AsyncIterator[dict]]
+        One row containing details for one transformation step
+    """
     if isinstance(csv_path, str):
         csv_path = Path(csv_path)
 
@@ -38,13 +54,14 @@ async def get_transformations_from_csv(csv_path: Path | str) -> AsyncIterator[di
 
 @validate_arguments
 async def get_config_from_file(settings_path: Path | str) -> dict | None:
-    """
-    Load a configuration file into a dictionary. Supported formats are JSON, YAML, and TOML.
+    """Load a configuration file into a dictionary. Supported formats are JSON, YAML, and TOML.
 
     Args:
+    ----
         settings_path (Path): The path to the configuration file.
 
     Returns:
+    -------
         dict | None: The configuration data as a dictionary, or None if an error occurred.
     """
     loaders = defaultdict(
@@ -82,31 +99,8 @@ async def get_config_from_file(settings_path: Path | str) -> dict | None:
         log.warning(f"Skipping: {settings_path.as_posix()} Encountered: {e}")
 
 
-def _get_multiple_validations_with_same_rule(validations):
-    """
-    Group a list of validations by their rule and return only the groups that have more
-    than one validation with the same rule.
-
-    Inputs:
-    - validations: a list of dictionaries containing validation rules and actions.
-
-    Flow:
-    1. The function uses the groupby function from itertools to group the validations
-       by their rule.
-    2. For each group, it creates a list of validation actions.
-    3. It returns a dictionary with the rule as the key and the list of validation
-       actions as the value, but only for groups with more than one validation.
-
-    Outputs:
-    - A dictionary with the rule as the key and a list of validation actions as the
-      value for groups with more than one validation.
-
-    Additional aspects:
-    - The function uses the strip() method to remove any leading or trailing whitespace
-      from the rule before grouping.
-    - The function sorts the validations list by rule.
-    """
-
+def _get_multiple_validations_with_same_rule(validations: dict) -> dict:
+    """Group a list of validations by their rule and return only the groups that have more than one validation with the same rule."""
     validation_groups = {
         k: [v["validation_action"] for v in v]
         for k, v in groupby(
@@ -120,12 +114,11 @@ def _get_multiple_validations_with_same_rule(validations):
 
 @dataclasses.dataclass
 class Validation:
-    """
-    The Validation class is designed to provide a way to define validation rules and
+    """The Validation class is designed to provide a way to define validation rules and
     actions for data. The class has two main fields: validation_rule and
     validation_action. The validation_rule field is a Spark SQL string that defines the
     rule that the input data must follow, while the validation_action field is a string
-    that defines the action to take if the input data fails to meet the validation rule
+    that defines the action to take if the input data fails to meet the validation rule.
 
     Fields:
     The Validation class has two main fields: validation_rule and validation_action.
@@ -156,42 +149,42 @@ class ClusterAutoscale:
 class Cluster:
     label: constr(to_lower=True, strict=True, regex=r"\A(default|maintenance)\Z")
     node_type_id: constr(min_length=1, strict=True)
-    spark_conf: Optional[Dict[str, str]] = Field(default_factory=dict)
-    aws_attributes: Optional[Dict[str, str]] = Field(default_factory=dict)
-    driver_node_type_id: Optional[constr(min_length=1, strict=True)] = None
-    ssh_public_keys: Optional[List[str]] = Field(default_factory=list)
-    custom_tags: Optional[Dict[str, str]] = Field(default_factory=dict)
-    cluster_log_conf: Optional[Dict[str, Dict[str, str]]] = Field(default_factory=dict)
-    spark_env_vars: Optional[Dict[str, str]] = Field(default_factory=dict)
-    init_scripts: Optional[List[Dict[str, Dict[str, str]]]] = Field(
-        default_factory=list
+    spark_conf: dict[str, str] | None = Field(default_factory=dict)
+    aws_attributes: dict[str, str] | None = Field(default_factory=dict)
+    driver_node_type_id: constr(min_length=1, strict=True) | None = None
+    ssh_public_keys: list[str] | None = Field(default_factory=list)
+    custom_tags: dict[str, str] | None = Field(default_factory=dict)
+    cluster_log_conf: dict[str, dict[str, str]] | None = Field(default_factory=dict)
+    spark_env_vars: dict[str, str] | None = Field(default_factory=dict)
+    init_scripts: list[dict[str, dict[str, str]]] | None = Field(
+        default_factory=list,
     )
-    instance_pool_id: Optional[constr(min_length=1, strict=True)] = None
-    driver_instance_pool_id: Optional[constr(min_length=1, strict=True)] = None
-    policy_id: Optional[constr(min_length=1, strict=True)] = None
-    num_workers: Optional[int] = None
-    autoscale: Optional[ClusterAutoscale] = None
+    instance_pool_id: constr(min_length=1, strict=True) | None = None
+    driver_instance_pool_id: constr(min_length=1, strict=True) | None = None
+    policy_id: constr(min_length=1, strict=True) | None = None
+    num_workers: int | None = None
+    autoscale: ClusterAutoscale | None = None
 
     @root_validator(pre=True)
     @classmethod
     def check_only_one_of_autoscale_or_num_workers_defined(cls, values):
-        """
-        Root validator method that checks that only one of the autoscale or num_workers
+        """Root validator method that checks that only one of the autoscale or num_workers
         fields is defined and that at least one of them is defined.
         """
         if not any(values[v] for v in ["autoscale", "num_workers"]):
+            msg = "No cluster defined. Please provide either autoscale or a num_workers"
             raise ValueError(
-                "No cluster defined. Please provide either autoscale or a num_workers"
+                msg,
             )
         if all(values[t] for t in ["autoscale", "num_workers"]):
-            raise ValueError("Only one of autoscale or num_workers allowed")
+            msg = "Only one of autoscale or num_workers allowed"
+            raise ValueError(msg)
         return values
 
 
 @dataclasses.dataclass
 class Source:
-    """
-    The Source class is designed to represent a data source and its associated
+    """The Source class is designed to represent a data source and its associated
     metadata. It can handle different types of data sources, including local files,
     remote URLs, and non-empty strings. The class also allows for optional parameters
     and validations to be associated with the data source.
@@ -212,26 +205,24 @@ class Source:
     """
 
     origin: constr(min_length=1, strict=True)
-    type: constr(min_length=1, strict=True)
+    datatype: constr(min_length=1, strict=True)
     target: constr(min_length=1, strict=True)
-    params: Optional[str] = None
-    validations: Optional[List[Validation]] = Field(default_factory=list)
+    params: str | None = None
+    validations: list[Validation] | None = Field(default_factory=list)
 
     @validator("validations")
     @classmethod
     def check_multiple_validations_with_same_rule(cls, value):
-        """
-        Validator that checks that there are no multiple validations with the same rule
-        """
+        """Validator that checks that there are no multiple validations with the same rule."""
         if value and (fails := _get_multiple_validations_with_same_rule(value)):
-            raise ValueError(f"Different actions for the same validation:\n{fails}")
+            msg = f"Different actions for the same validation:\n{fails}"
+            raise ValueError(msg)
         return value
 
 
 @dataclasses.dataclass
 class Transformation:
-    """
-    The Transformation class is designed to represent a data transformation with
+    """The Transformation class is designed to represent a data transformation with
     optional validation rules. It ensures that only one of the config or sql_query
     fields is defined and that at least one of them is defined. It also allows for a
     list of Validation objects to be included to ensure that the transformation meets
@@ -251,64 +242,49 @@ class Transformation:
 
     origin: constr(min_length=1, strict=True)
     target: constr(min_length=1, strict=True)
-    column_order: Optional[conint(ge=1)] = None
-    source_column_name: Optional[constr(strict=True)] = None
-    source_column_type: Optional[
-        constr(
-            strict=True,
-            regex=r"\A(string|int|double|date|timestamp|boolean|struct|array|map)\Z",
-        )
-    ] = None
-    dest_column_name: Optional[constr(strict=True)] = None
-    dest_column_type: Optional[
-        constr(
-            strict=True,
-            regex=r"\A(string|int|double|date|timestamp|boolean|struct|array|map)\Z",
-        )
-    ] = None
-    transform_function: Optional[constr(strict=True)] = None
-    sql_query: Optional[constr(min_length=1, strict=True)] = None
-    default_value: Optional[constr(strict=True)] = None
-    validations: Optional[List[Validation]] = Field(default_factory=list)
+    column_order: conint(ge=1) | None = None
+    source_column_name: constr(strict=True) | None = None
+    source_column_type: constr(
+        strict=True,
+        regex="\\A(string|int|double|date|timestamp|boolean|struct|array|map)\\Z",
+    ) | None = None
+    dest_column_name: constr(strict=True) | None = None
+    dest_column_type: constr(
+        strict=True,
+        regex="\\A(string|int|double|date|timestamp|boolean|struct|array|map)\\Z",
+    ) | None = None
+    transform_function: constr(strict=True) | None = None
+    sql_query: constr(min_length=1, strict=True) | None = None
+    default_value: constr(strict=True) | None = None
+    validations: list[Validation] | None = Field(default_factory=list)
 
     @root_validator(pre=True)
     @classmethod
     def check_only_one_of_config_or_sql_query_defined(cls, values):
-        """
-        Root validator method that checks that only one of the config or sql_query
+        """Root validator method that checks that only one of the config or sql_query
         fields is defined and that at least one of them is defined.
         """
         if not any(values.get(v) for v in ["column_order", "sql_query"]):
-            raise ValueError(
-                f"""
-                No transformation defined. Please provide either a config or a sql_query.
-                Got: {values}
-                """
-            )
+            msg = f"No transformation defined. Please provide either a config or a sql_query.\nGot: {values}"
+            raise ValueError(msg)
         if all(values.get(t) for t in ["column_order", "sql_query"]):
-            raise ValueError(
-                f"""
-                Only one of config or sql_query allowed.
-                Got: {values}
-                """
-            )
+            msg = f"Only one of config or sql_query allowed.Got: {values}"
+            raise ValueError(msg)
         return values
 
     @validator("validations")
     @classmethod
-    def check_multiple_validations_with_same_rule(cls, value):
-        """
-        Validator that checks that there are no multiple validations with the same rule
-        """
+    def check_multiple_validations_with_same_rule(cls, value: dict) -> dict:
+        """Validate that there are no multiple validations with the same rule."""
         if value and (fails := _get_multiple_validations_with_same_rule(value)):
-            raise ValueError(f"Different actions for the same validation:\n{fails}")
+            msg = f"Different actions for the same validation:\n{fails}"
+            raise ValueError(msg)
         return value
 
 
 @dataclasses.dataclass
 class Destination:
-    """
-    Represents a Delta table destination for a batch of data. It has fields for the
+    """Represents a Delta table destination for a batch of data. It has fields for the
     source data view, the destination table, the path to the destination, the mode of
     writing (append or upsert), keys and sequence_by for upsert mode, and optional
     validations. The class provides validation for the fields and checks that the keys
@@ -331,44 +307,41 @@ class Destination:
     origin: constr(min_length=1, strict=True)
     target: constr(min_length=1, strict=True)
     mode: constr(min_length=1, strict=True, regex=r"^(append|upsert)$")
-    path: Optional[Path] = None
-    keys: Optional[List[constr(min_length=1, strict=True)]] = Field(
-        default_factory=list
+    path: Path | None = None
+    keys: list[constr(min_length=1, strict=True)] | None = Field(
+        default_factory=list,
     )
-    sequence_by: Optional[constr(min_length=1, strict=True)] = None
-    validations: Optional[List[Validation]] = Field(default_factory=list)
+    sequence_by: constr(min_length=1, strict=True) | None = None
+    validations: list[Validation] | None = Field(default_factory=list)
 
     @root_validator(pre=True)
     @classmethod
     def check_keys_and_sequence_for_upsert(cls, values):
-        """
-        Root validator that checks that the keys and sequence_by fields are defined for
+        """Root validator that checks that the keys and sequence_by fields are defined for
         upsert mode.
         """
         if values.get("mode") == "upsert" and not all(
-            [values[v] for v in ["keys", "sequence_by"]]
+            values[v] for v in ["keys", "sequence_by"]
         ):
+            msg = "Mode upsert requires that keys and sequence_by are defined"
             raise ValueError(
-                "Mode upsert requires that keys and sequence_by are defined"
+                msg,
             )
         return values
 
     @validator("validations")
     @classmethod
     def check_multiple_validations_with_same_rule(cls, value):
-        """
-        Validator that checks that there are no multiple validations with the same rule
-        """
+        """Validator that checks that there are no multiple validations with the same rule."""
         if value and (fails := _get_multiple_validations_with_same_rule(value)):
-            raise ValueError(f"Different actions for the same validation:\n{fails}")
+            msg = f"Different actions for the same validation:\n{fails}"
+            raise ValueError(msg)
         return value
 
     @validator("path", pre=False, always=True)
     @classmethod
-    def convert_to_absolute_string(cls, value: Optional[Path]) -> Optional[str]:
-        """
-        Validator that converts the Path object to its absolute POSIX representation
-        """
+    def convert_to_absolute_string(cls, value: Path | None) -> str | None:
+        """Validator that converts the Path object to its absolute POSIX representation."""
         if value:
             return value.absolute().as_posix()
 
@@ -377,48 +350,42 @@ class Destination:
 
 @dataclasses.dataclass
 class Configuration:
-    """
-    The Configuration class is designed to represent a configuration file for a data
-    pipeline. It contains optional lists of Source, Transformation, and Destination
-    objects, which define the stages of the pipeline. The class provides validation to
-    ensure that at least one stage is defined in the configuration file.
+    """Represents a configuration file for a data pipeline.
 
-    Fields:
-    - clusters: an optional list of Cluster objects that represent the data clusters for
-      the pipeline.
-    - sources: an optional list of Source objects that represent the data sources for
-      the pipeline.
-    - transformations: an optional list of Transformation objects that represent the
-      data transformations for the pipeline.
-    - destinations: an optional list of Destination objects that represent the
-      destinations for the pipeline.
+    Returns
+    -------
+    Configuration
+        Contains optional lists of Cluster, Source, Transformation, and Destination
+        objects, which define the stages of the pipeline. Provides validation to ensure
+        that at least one stage is defined in the configuration file.
+
+    Raises
+    ------
+    ValueError
+        At least one stage definition (Source, Transformation, Destination) must exist.
+    ValueError
+        All values in the "target" fields of all pipeline stages taken together must be
+        unique.
     """
 
-    clusters: Optional[conlist(Cluster, max_items=1)] = None
-    sources: Optional[List[Source]] = Field(default_factory=list)
-    transformations: Optional[List[Transformation]] = Field(default_factory=list)
-    destinations: Optional[List[Destination]] = Field(default_factory=list)
+    clusters: conlist(Cluster, max_items=1) | None = None
+    sources: list[Source] | None = Field(default_factory=list)
+    transformations: list[Transformation] | None = Field(default_factory=list)
+    destinations: list[Destination] | None = Field(default_factory=list)
 
     @root_validator(pre=True)
     @classmethod
-    def check_at_least_one_stage_defined(cls, values):
-        """
-        Root validator method that checks that at least one of the sources,
-        transformations, or destinations fields is defined in the configuration file.
-        """
+    def check_at_least_one_stage_defined(cls, values: dict) -> dict:
+        """Check that at least one of the sources, transformations, or destinations fields is defined in the configuration file."""
         if not any(v in ["sources", "transformations", "destinations"] for v in values):
-            raise ValueError(
-                "No stage definition found. Please define at least one of: sources, transformations, destinations"
-            )
+            msg = "No stage definition found. Please define at least one of: sources, transformations, destinations"
+            raise ValueError(msg)
         return values
 
     @root_validator(pre=True)
     @classmethod
-    def check_all_dlt_target_objects_are_unique(cls, values):
-        """
-        Root validator that checks that no values of the "target" fields of "sources",
-        "transformations" and "destinations", taken together, overlap.
-        """
+    def check_all_dlt_target_objects_are_unique(cls, values: dict) -> dict:
+        """Check that no values of the "target" fields of "sources", "transformations" and "destinations", taken together, overlap."""
         sources = values.get("sources", [])
         transformations = values.get("transformations", [])
         destinations = values.get("destinations", [])
@@ -438,8 +405,7 @@ class Configuration:
         ]
 
         if duplicates:
-            raise ValueError(
-                f"Duplicate 'target' values found: {', '.join(duplicates)}"
-            )
+            msg = f"Duplicate 'target' values found: {', '.join(duplicates)}"
+            raise ValueError(msg)
 
         return values
