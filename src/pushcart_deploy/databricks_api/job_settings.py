@@ -1,3 +1,20 @@
+"""Load Databricks job settings for a data pipeline from file or from defaults.
+
+Job settings may come in JSON, TOML or YAML formats when loaded from file
+
+Example:
+-------
+    job_settings = JobSettings(api_client)
+    settings_from_file = job_settings.load_job_settings(settings_path="/path/to/pipeline.json")
+    default_settings = job_settings.load_job_settings(default_settings="checkpoint")
+
+Notes:
+-----
+Needs a Databricks CLI ApiClient to be configured and connected to a Databricks
+environment.
+
+"""
+
 import asyncio
 import logging
 import operator
@@ -116,7 +133,8 @@ class JobSettings:
         """Validate the provided ApiClient."""
         return validate_databricks_api_client(value)
 
-    def __post_init_post_parse__(self):
+    def __post_init_post_parse__(self) -> None:
+        """Initialize logger."""
         self.log = logging.getLogger(__name__)
         self.log.setLevel(logging.INFO)
 
@@ -127,7 +145,7 @@ class JobSettings:
         default_settings: constr(
             min_length=1,
             strict=True,
-            regex="^(checkpoint|pipeline|release)$",
+            regex="^(checkpoint|pipeline)$",
         )
         | None = None,
     ) -> dict:
@@ -155,14 +173,13 @@ class JobSettings:
         settings_name: constr(
             min_length=1,
             strict=True,
-            regex=r"^(checkpoint|pipeline|release)$",
+            regex=r"^(checkpoint|pipeline)$",
         ),
     ) -> dict:
-        """Retrieve default job settings for checkpoint, pipeline, and release jobs."""
+        """Retrieve default job settings for checkpoint and pipeline jobs."""
         settings_map = {
             "checkpoint": _get_default_checkpoint_job_settings,
             "pipeline": _get_default_pipeline_job_settings,
-            "release": _get_default_release_job_settings,
         }
 
         settings_getter = settings_map.get(settings_name)
@@ -174,15 +191,13 @@ class JobSettings:
         return settings_getter(self.client)
 
 
+def _get_default_pipeline_job_settings(
+    client: ApiClient = None,  # noqa: ARG001
+) -> dict:
+    return {}
+
+
 def _get_default_checkpoint_job_settings(client: ApiClient = None) -> dict:
-    return {}
-
-
-def _get_default_pipeline_job_settings(client: ApiClient = None) -> dict:
-    return {}
-
-
-def _get_default_release_job_settings(client: ApiClient = None) -> dict:
     return {
         "name": "release",
         "timeout_seconds": 0,

@@ -1,3 +1,23 @@
+"""Setup module for deploying Pushcart configuration files.
+
+Example:
+-------
+    ```bash
+    pushcart-deploy --config-dir ~/source/pushcart-config
+    ```
+
+    ```python
+    setup = Setup("~/source/pushcart-config")
+    setup.deploy()
+    ```
+
+Notes:
+-----
+Can be run from the command line, or from within a Python context.
+Requires Databricks CLI to already be configured for your target Databricks environment
+
+"""
+
 import logging
 
 import click
@@ -10,16 +30,26 @@ from pushcart_deploy import Metadata
 
 @dataclasses.dataclass
 class Setup:
+    """Runs a Pushcart deployment."""
+
     config_dir: DirectoryPath
 
     @provide_api_client
     def __post_init_post_parse__(self, api_client: ApiClient) -> None:
+        """Initialize logger.
+
+        Parameters
+        ----------
+        api_client : ApiClient
+            Used to log target Databricks environment URL
+        """
         self.log = logging.getLogger(__name__)
         self.log.setLevel(logging.INFO)
 
         self.log.info(f"Deploying Pushcart to Databricks Workspace: {api_client.url}")
 
     def deploy(self) -> None:
+        """Start a deployment of Pushcart data pipeline configurations."""
         metadata = Metadata(self.config_dir)
         metadata.create_backend_objects()
 
@@ -31,6 +61,15 @@ def deploy(
     config_dir: str,
     profile: str = None,  # Derived from context by @provide_api_client  # noqa: ARG001
 ) -> None:
+    """Run a Pushcart deployment from CLI.
+
+    Parameters
+    ----------
+    config_dir : str
+        Root directory where the Pushcart configuration files reside.
+    profile : str, optional
+        Databricks CLI profile to be used, by default None
+    """
     d = Setup(config_dir)
     d.deploy()
 

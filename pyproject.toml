@@ -74,7 +74,7 @@ fixable = [
   "YTT",
 ]
 unfixable = []
-exclude = [".venv"]
+exclude = [".venv", "tests"]
 
 [tool.poetry]
 name = "pushcart-deploy"

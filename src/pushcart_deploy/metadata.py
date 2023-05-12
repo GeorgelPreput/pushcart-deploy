@@ -1,3 +1,17 @@
+"""Module to transfer configuration files into Databricks metadata tables.
+
+Example:
+-------
+    metadata = Metadata("~/source/pushcart-config")
+    metadata.create_backend_objects()
+
+Notes:
+-----
+Requires Databricks Connect v2, and a cluster with Databricks Runtime >= 13
+Requires Databricks CLI to already be configured for your target Databricks environment
+
+"""
+
 import asyncio
 import json
 import logging
@@ -21,9 +35,22 @@ from pushcart_deploy.validation import sanitize_empty_objects
 
 @dataclasses.dataclass
 class Metadata:
+    """Read pipeline configuration files and create backend objects in Databricks.
+
+    Returns
+    -------
+    Metadata
+        Holds methods for reading, parsing and enriching configuration files, then
+        writing them to the Databricks environment into metadata tables:
+        - pushcart.sources
+        - pushcart.transformations
+        - pushcart.destinations
+    """
+
     config_dir: DirectoryPath
 
-    def __post_init_post_parse__(self):
+    def __post_init_post_parse__(self) -> None:
+        """Initialize logger."""
         self.log = logging.getLogger(__name__)
         self.log.setLevel(logging.INFO)
 

@@ -1,3 +1,21 @@
+"""Data pipeline configuration.
+
+Metadata configuration for running a data pipeline using Pushcart. Is instantiated
+off of a Python dictionary, or a JSON, TOML or YAML file, optionally in conjuction
+with a CSV file for transformation definitions.
+
+Example:
+-------
+    config_dict = json.load(file)
+    pipeline_config = Configuration.parse_obj(config_dict)
+
+Notes:
+-----
+Configuration must have at least one stage (Source, Transformation, Destination) of the
+data pipeline defined.
+
+"""
+
 import csv
 import json
 import logging
@@ -56,13 +74,15 @@ async def get_transformations_from_csv(csv_path: Path | str) -> AsyncIterator[di
 async def get_config_from_file(settings_path: Path | str) -> dict | None:
     """Load a configuration file into a dictionary. Supported formats are JSON, YAML, and TOML.
 
-    Args:
-    ----
-        settings_path (Path): The path to the configuration file.
+    Parameters
+    ----------
+    settings_path : Path | str
+        Path to the configuration file.
 
-    Returns:
+    Returns
     -------
-        dict | None: The configuration data as a dictionary, or None if an error occurred.
+    dict | None
+        The configuration data as a dictionary, or None if an error occurred.
     """
     loaders = defaultdict(
         lambda: None,
@@ -114,32 +134,37 @@ def _get_multiple_validations_with_same_rule(validations: dict) -> dict:
 
 @dataclasses.dataclass
 class Validation:
-    """The Validation class is designed to provide a way to define validation rules and
-    actions for data. The class has two main fields: validation_rule and
-    validation_action. The validation_rule field is a Spark SQL string that defines the
-    rule that the input data must follow, while the validation_action field is a string
-    that defines the action to take if the input data fails to meet the validation rule.
+    """Provides a way to define validation rules and actions for data.
 
-    Fields:
-    The Validation class has two main fields: validation_rule and validation_action.
-    The validation_rule field is a string that defines the rule that the input data
-    must follow. It has a minimum length of 1 character, which ensures that the input
-    data is not empty. The validation_action field is a string that defines the action
-    to take if the input data fails to meet the validation rule. It must be one of
-    three values: LOG, DROP, or FAIL. If the input data fails to meet the validation
-    rule, the action specified in this field will be taken.
+    Has two main fields: validation_rule and validation_action. The validation_rule
+    field is a Spark SQL string that defines the rule that the input data must follow,
+    while the validation_action field is a string that defines the action to take if
+    the input data fails to meet the validation rule.
     """
 
     validation_rule: constr(min_length=1, strict=True)
     validation_action: constr(to_upper=True, strict=True, regex=r"\A(LOG|DROP|FAIL)\Z")
 
-    def __getitem__(self, item):
-        # Without this Pydantic throws ValidationError: object is not subscriptable
+    def __getitem__(self, item: str) -> any:
+        """Avoid Pydantic throwing ValidationError: object not subscriptable.
+
+        Parameters
+        ----------
+        item : str
+            Name of parent object attribute
+
+        Returns
+        -------
+        any
+            Type of returned object
+        """
         return self.__getattribute__(item)
 
 
 @dataclasses.dataclass
 class ClusterAutoscale:
+    """Provides a way to configure cluster autoscaling."""
+
     min_workers: int
     max_workers: int
     mode: constr(to_upper=True, strict=True, regex=r"\A(ENHANCED|LEGACY)\Z")
@@ -147,6 +172,21 @@ class ClusterAutoscale:
 
 @dataclasses.dataclass
 class Cluster:
+    """Cluster specification for scheduling jobs.
+
+    Returns
+    -------
+    Cluster
+        API specification as per https://docs.databricks.com/delta-live-tables/api-guide.html#pipelines-new-cluster
+
+    Raises
+    ------
+    ValueError
+        Cluster definition must have either a set number of workers or autoscaling information
+    ValueError
+        Cluster definition cannot both have a set number of workers and autoscaling information
+    """
+
     label: constr(to_lower=True, strict=True, regex=r"\A(default|maintenance)\Z")
     node_type_id: constr(min_length=1, strict=True)
     spark_conf: dict[str, str] | None = Field(default_factory=dict)
@@ -167,10 +207,8 @@ class Cluster:
 
     @root_validator(pre=True)
     @classmethod
-    def check_only_one_of_autoscale_or_num_workers_defined(cls, values):
-        """Root validator method that checks that only one of the autoscale or num_workers
-        fields is defined and that at least one of them is defined.
-        """
+    def check_only_one_of_autoscale_or_num_workers_defined(cls, values: dict) -> dict:
+        """Check that one and only one of the autoscale or num_workers fields is defined."""
         if not any(values[v] for v in ["autoscale", "num_workers"]):
             msg = "No cluster defined. Please provide either autoscale or a num_workers"
             raise ValueError(
@@ -184,24 +222,22 @@ class Cluster:
 
 @dataclasses.dataclass
 class Source:
-    """The Source class is designed to represent a data source and its associated
-    metadata. It can handle different types of data sources, including local files,
-    remote URLs, and non-empty strings. The class also allows for optional parameters
-    and validations to be associated with the data source.
+    """Represents a data source and its associated metadata.
 
-    Fields:
-    The Source class has five main fields:
-    - origin: represents the data source itself, and can be of type Path, AnyUrl, or
-      constr.
-    - type: represents the type of data contained in the source, and is a string with a
-      minimum length of 1.
-    - target: represents the destination for the data, and is a string with a minimum
-      length of 1.
-    - params: represents optional parameters associated with the data source, and is a
-      dictionary.
-    - validations: optional validation rules associated with the data source. Each
-      Validation object has a validation_rule field (Spark SQL) and a validation_action
-      field (a string that must be either "LOG", "DROP", or "FAIL").
+    Handles different types of data sources, including local files, remote URLs, and
+    non-empty strings. The class also allows for optional parameters and validations
+    to be associated with the data source.
+
+    Returns
+    -------
+    Source
+        Object defining a Pipeline data source.
+
+    Raises
+    ------
+    ValueError
+        Only one action (WARN | DROP | FAIL) can be defined as consequence to a data
+        validation rule
     """
 
     origin: constr(min_length=1, strict=True)
@@ -212,8 +248,8 @@ class Source:
 
     @validator("validations")
     @classmethod
-    def check_multiple_validations_with_same_rule(cls, value):
-        """Validator that checks that there are no multiple validations with the same rule."""
+    def check_multiple_validations_with_same_rule(cls, value: dict) -> dict:
+        """Check that there are no multiple validation actions for the same rule."""
         if value and (fails := _get_multiple_validations_with_same_rule(value)):
             msg = f"Different actions for the same validation:\n{fails}"
             raise ValueError(msg)
@@ -222,22 +258,26 @@ class Source:
 
 @dataclasses.dataclass
 class Transformation:
-    """The Transformation class is designed to represent a data transformation with
-    optional validation rules. It ensures that only one of the config or sql_query
-    fields is defined and that at least one of them is defined. It also allows for a
-    list of Validation objects to be included to ensure that the transformation meets
-    certain criteria.
+    """Represents a data transformation with optional validation rules.
 
-    Fields:
-    - origin: a required string field that represents the data view to be transformed.
-    - target: a required string field that represents the desired output of the
-      transformation.
-    - config: an optional FilePath field that represents the configuration file to be
-      used for the transformation.
-    - sql_query: an optional string field that represents the SQL query to be used for
-      the transformation.
-    - validations: an optional list of Validation objects that represent validation
-      rules to be applied to the transformation.
+    It ensures that only one of the config or sql_query fields is defined and that at
+    least one of them is defined. It also allows for a list of Validation objects to
+    be included to ensure that the transformed data meets desired criteria.
+
+    Returns
+    -------
+    Transformation
+        Object defining a transformation step within a data Pipeline.
+
+    Raises
+    ------
+    ValueError
+        Transformation needs to be based on a SQL query or a metadata .csv file
+    ValueError
+        Transformation must only have one of either a SQL query or a metadata .csv file
+    ValueError
+        Only one action (WARN | DROP | FAIL) can be defined as consequence to a data
+        validation rule
     """
 
     origin: constr(min_length=1, strict=True)
@@ -260,15 +300,13 @@ class Transformation:
 
     @root_validator(pre=True)
     @classmethod
-    def check_only_one_of_config_or_sql_query_defined(cls, values):
-        """Root validator method that checks that only one of the config or sql_query
-        fields is defined and that at least one of them is defined.
-        """
+    def check_only_one_of_config_or_sql_query_defined(cls, values: dict) -> dict:
+        """Check that one and only one of the config or sql_query fields is defined."""
         if not any(values.get(v) for v in ["column_order", "sql_query"]):
             msg = f"No transformation defined. Please provide either a config or a sql_query.\nGot: {values}"
             raise ValueError(msg)
         if all(values.get(t) for t in ["column_order", "sql_query"]):
-            msg = f"Only one of config or sql_query allowed.Got: {values}"
+            msg = f"Only one of config or sql_query allowed.\nGot: {values}"
             raise ValueError(msg)
         return values
 
@@ -284,24 +322,27 @@ class Transformation:
 
 @dataclasses.dataclass
 class Destination:
-    """Represents a Delta table destination for a batch of data. It has fields for the
-    source data view, the destination table, the path to the destination, the mode of
-    writing (append or upsert), keys and sequence_by for upsert mode, and optional
-    validations. The class provides validation for the fields and checks that the keys
-    and sequence_by fields are defined for upsert mode. It also checks that there are
-    no multiple validations with the same rule.
+    """Represents a Delta table destination for a batch of data.
 
-    Fields:
-    - origin: a string that represents the data view to be written to the destination.
-    - target: a string that represents the destination table.
-    - path: an optional string that represents the file path for the destination Delta
-      table. If not set, the Delta table will be managed by Databricks
-    - mode: a string that represents the mode of writing (append or upsert).
-    - keys: an optional list of strings that represents the keys for upsert mode.
-    - sequence_by: an optional string that represents the sequence_by field for upsert
-      mode.
-    - validations: an optional list of Validation objects that represent validation
-      rules and actions for the data.
+    Defines fields for the source data view, the destination table, the path to the
+    destination, the mode of writing (append or upsert), keys and sequence_by for
+    upsert mode, and optional validations. Provides validation for the fields and
+    checks that the keys and sequence_by fields are defined for upsert mode. Checks
+    that there are no multiple validations with the same rule.
+
+    Returns
+    -------
+    Destination
+        Object defining a destination for the data Pipeline to write to.
+
+    Raises
+    ------
+    ValueError
+        When upserting to a destination, the primary key and sequence columns must be
+        defined.
+    ValueError
+        Only one action (WARN | DROP | FAIL) can be defined as consequence to a data
+        validation rule
     """
 
     origin: constr(min_length=1, strict=True)
@@ -316,10 +357,8 @@ class Destination:
 
     @root_validator(pre=True)
     @classmethod
-    def check_keys_and_sequence_for_upsert(cls, values):
-        """Root validator that checks that the keys and sequence_by fields are defined for
-        upsert mode.
-        """
+    def check_keys_and_sequence_for_upsert(cls, values: dict) -> dict:
+        """Check that the keys and sequence_by fields are defined for upsert mode."""
         if values.get("mode") == "upsert" and not all(
             values[v] for v in ["keys", "sequence_by"]
         ):
@@ -331,8 +370,8 @@ class Destination:
 
     @validator("validations")
     @classmethod
-    def check_multiple_validations_with_same_rule(cls, value):
-        """Validator that checks that there are no multiple validations with the same rule."""
+    def check_multiple_validations_with_same_rule(cls, value: dict) -> dict:
+        """Check that there are no multiple validations with the same rule."""
         if value and (fails := _get_multiple_validations_with_same_rule(value)):
             msg = f"Different actions for the same validation:\n{fails}"
             raise ValueError(msg)
@@ -341,7 +380,7 @@ class Destination:
     @validator("path", pre=False, always=True)
     @classmethod
     def convert_to_absolute_string(cls, value: Path | None) -> str | None:
-        """Validator that converts the Path object to its absolute POSIX representation."""
+        """Convert the Path object to its absolute POSIX representation."""
         if value:
             return value.absolute().as_posix()
 

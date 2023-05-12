@@ -1,3 +1,20 @@
+"""Create or sync a Git repository containing Pushcart configuration files.
+
+Wrapper class around the Databricks Repos API.
+
+Example:
+-------
+    repos_wrapper = ReposWrapper(api_client)
+    repos_wrapper.get_or_create_repo("pushcart", "https://github.com/GeorgelPreput/pushcart-config")
+    repos_wrapper.update("pushcart", "main")
+
+Notes:
+-----
+Needs a Databricks CLI ApiClient to be configured and connected to a Databricks
+environment.
+
+"""
+
 import logging
 import re
 from pathlib import Path
@@ -5,6 +22,7 @@ from pathlib import Path
 from databricks_cli.repos.api import ReposApi
 from databricks_cli.sdk.api_client import ApiClient
 from pydantic import HttpUrl, constr, dataclasses, validate_arguments, validator
+from requests.exceptions import HTTPError
 
 from pushcart_deploy.validation import (
     PydanticArbitraryTypesConfig,
@@ -14,15 +32,22 @@ from pushcart_deploy.validation import (
 
 @dataclasses.dataclass(config=PydanticArbitraryTypesConfig)
 class ReposWrapper:
-    """The ReposWrapper class provides a wrapper around the Databricks Repos API. It
-    allows users to get or create a repository, update the repository with a new
+    """Wrapper around the Databricks Repos API.
+
+    Allows users to get or create a repository, update the repository with a new
     branch, and detect the Git provider from a given URL.
 
-    Fields:
-    - client: an ApiClient object used to interact with the Databricks Repos API
-    - log: a logger object used for logging messages
-    - repos_api: a ReposApi object used to interact with the Databricks Repos API
-    - repo_id: the ID of the repository (initialized to None)
+    Returns
+    -------
+    ReposWrapper
+        Wrapper object to sync a Pushcart configurations repo to the environment.
+
+    Raises
+    ------
+    ValueError
+        Git provider must be provided explicitly, unless it can be derived from the repo URL.
+    ValueError
+        Can only update a repo that has been initialized.
     """
 
     client: ApiClient
@@ -33,7 +58,8 @@ class ReposWrapper:
         """Validate that the ApiClient object is properly initialized."""
         return validate_databricks_api_client(value)
 
-    def __post_init_post_parse__(self):
+    def __post_init_post_parse__(self) -> None:
+        """Initialize logger."""
         self.log = logging.getLogger(__name__)
         self.log.setLevel(logging.INFO)
 
@@ -60,9 +86,7 @@ class ReposWrapper:
                 return provider
 
         msg = "Could not detect Git provider from URL. Please specify git_provider explicitly."
-        raise ValueError(
-            msg,
-        )
+        raise ValueError(msg)
 
     @validate_arguments
     def get_or_create_repo(
@@ -88,7 +112,7 @@ class ReposWrapper:
         repo_path = (Path("/Repos") / repo_user / git_repo).as_posix()
         try:
             self.repo_id = self.repos_api.get_repo_id(path=repo_path)
-        except Exception:
+        except (HTTPError, ValueError, RuntimeError):
             self.log.warning("Failed to get repo ID")
 
         if not self.repo_id:

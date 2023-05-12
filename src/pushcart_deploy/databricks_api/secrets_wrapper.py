@@ -1,3 +1,21 @@
+"""Create secrets and secret scopes to be used by Pushcart.
+
+Wrapper class around the Databricks Secrets API used in setting Pushcart-specific
+secrets to be read by data pipelines.
+
+Example:
+-------
+    secrets_wrapper = SecretsWrapper(api_client)
+    secrets_wrapper.create_scope_if_not_exists("pushcart")
+    secrets_wrapper.push_secrets("pushcart", secrets_dict)
+
+Notes:
+-----
+Needs a Databricks CLI ApiClient to be configured and connected to a Databricks
+environment.
+
+"""
+
 import logging
 
 from databricks_cli.sdk.api_client import ApiClient
@@ -27,6 +45,7 @@ class SecretsWrapper:
         return validate_databricks_api_client(value)
 
     def __post_init_post_parse__(self) -> None:
+        """Initialize logger."""
         self.log = logging.getLogger(__name__)
         self.log.setLevel(logging.INFO)
 
@@ -73,7 +92,9 @@ class SecretsWrapper:
                 regex=r"^[A-Za-z0-9\-_.]{1,128}$",
             ),
             str,
-        ] = Field(default_factory=dict),
+        ] = Field(  # noqa: B008
+            default_factory=dict,
+        ),
     ) -> None:
         """Pushes secrets to a secret scope in the workspace."""
         if not secrets_dict:

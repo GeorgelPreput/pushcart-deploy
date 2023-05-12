@@ -1,3 +1,22 @@
+"""Manage Pushcart data pipeline jobs.
+
+Wrapper class around the Databricks Jobs API, creating, retrieving, updating and
+deleting jobs.
+
+Example:
+-------
+    jobs_wrapper = JobsWrapper(api_client)
+    checkpoint_job = jobs_wrapper.get_or_create_checkpoint_job("/path/to/settings.json")
+    jobs_wrapper.run(checkpoint_job)
+    jobs_wrapper.delete(checkpoint_job)
+
+Notes:
+-----
+Needs a Databricks CLI ApiClient to be configured and connected to a Databricks
+environment.
+
+"""
+
 import logging
 from pathlib import Path
 from time import sleep
@@ -19,9 +38,9 @@ class JobsWrapper:
     """Manages Databricks jobs.
 
     Provides methods for creating, retrieving, and deleting jobs, as well as for
-    running jobs and retrieving their status. It also uses the JobSettings class
-    to load job settings from a JSON file or string, or to retrieve default job
-    settings for checkpoint, pipeline, and release jobs.
+    running jobs and retrieving their status. Uses the JobSettings class to load
+    job settings from a JSON file or string, or to retrieve default job settings
+    for checkpoint, pipeline, and release jobs.
     """
 
     client: ApiClient
@@ -41,11 +60,11 @@ class JobsWrapper:
         self.runs_api = RunsApi(self.client)
 
     @validate_arguments
-    def get_or_create_release_job(self, settings_json: Path | None = None) -> str:
-        """Retrieve or create a release job using the provided job settings."""
+    def get_or_create_checkpoint_job(self, settings_json: Path | None = None) -> str:
+        """Retrieve or create a checkpoint job using the provided job settings."""
         job_settings = JobSettings(self.client).load_job_settings(
             settings_json,
-            "release",
+            "checkpoint",
         )
 
         return self.get_or_create_job(job_settings)

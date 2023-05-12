@@ -392,7 +392,7 @@ class TestConfiguration:
         """Tests that a configuration object can be created with all three fields defined."""
         config_dict = {
             "sources": [
-                {"origin": "path/to/data", "type": "csv", "target": "temp_table"},
+                {"origin": "path/to/data", "datatype": "csv", "target": "temp_table"},
             ],
             "transformations": [
                 {
