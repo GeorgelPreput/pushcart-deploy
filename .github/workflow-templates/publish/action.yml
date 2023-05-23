@@ -15,7 +15,7 @@ runs:
   steps:
     - name: Print build version
       shell: bash
-      run: cat pyproject.toml | grep -U "\nversion = "
+      run: cat pyproject.toml | grep "^version = "
     #----------------------------------------------
     #            publish to pypi test
     #----------------------------------------------
