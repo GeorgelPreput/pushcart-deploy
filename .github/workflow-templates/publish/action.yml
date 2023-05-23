@@ -22,7 +22,7 @@ runs:
       env:
         POETRY_PYPI_TOKEN_PYPI_TEST: ${{ inputs.pypi_test_token }}
       run: |
-        cat pyproject.toml | grep "version = "
+        cat pyproject.toml | grep -U "\nversion = "
         poetry config repositories.pypi_test https://test.pypi.org/legacy/
         poetry publish -r pypi_test
     #----------------------------------------------
@@ -34,5 +34,5 @@ runs:
       env:
         POETRY_PYPI_TOKEN_PYPI: ${{ inputs.pypi_token }}
       run: |
-        cat pyproject.toml | grep "version = "
+        cat pyproject.toml | grep -U "\nversion = "
         poetry publish --build

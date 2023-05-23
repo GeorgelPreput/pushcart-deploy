@@ -78,13 +78,13 @@ exclude = [".venv", "tests"]
 
 [tool.poetry]
 name = "pushcart-deploy"
-version = "1.4.0"
+version = "1.4.1"
 description = "Deployment helper for pipeline configurations using Pushcart"
 authors = ["Georgel Preput <georgelpreput@mailbox.org>"]
 license = "GPL-3.0-or-later"
 readme = "README.md"
 classifiers = [
-  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
   "License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)",
   "Operating System :: OS Independent",
   "Topic :: Database :: Database Engines/Servers",

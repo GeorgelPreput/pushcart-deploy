@@ -1,6 +1,6 @@
 {
     "name": "pushcart-deploy",
-    "version": "1.4.0",
+    "version": "1.4.1",
     "description": "Deployment package for the Pushcart library. To be used locally in conjunction with a Databricks environment remote, or in CI-CD",
     "keywords": [
         "Programming Language :: Python :: 3.10",
