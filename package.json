@@ -13,7 +13,7 @@
     "license": "GPL-3.0-or-later",
     "release": {
         "branches": [
-            "main"
+            "*"
         ],
         "repositoryUrl": "https://github.com/GeorgelPreput/pushcart-deploy",
         "plugins": [
@@ -28,6 +28,13 @@
                             ],
                             "from": "\nversion = \".*\"\n",
                             "to": "\nversion = \"${nextRelease.version}\"\n"
+                        },
+                        {
+                            "files": [
+                                "package.json"
+                            ],
+                            "from": "\n    \"version\": \".*\",\n",
+                            "to": "\n    \"version\": \"${nextRelease.version}\",\n"
                         }
                     ]
                 }
@@ -36,7 +43,8 @@
                 "@semantic-release/git",
                 {
                     "assets": [
-                        "pyproject.toml"
+                        "pyproject.toml",
+                        "package.json"
                     ]
                 }
             ],
