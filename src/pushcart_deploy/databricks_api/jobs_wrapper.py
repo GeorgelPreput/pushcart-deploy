@@ -54,7 +54,6 @@ class JobsWrapper:
     def __post_init_post_parse__(self) -> None:
         """Initialize the logger instance and creates instances of JobsApi and RunsApi."""
         self.log = logging.getLogger(__name__)
-        self.log.setLevel(logging.INFO)
 
         self.jobs_api = JobsApi(self.client)
         self.runs_api = RunsApi(self.client)
@@ -123,7 +122,7 @@ class JobsWrapper:
             job = self.runs_api.get_run(run_id)
             job_status = job["state"]["life_cycle_state"]
 
-            logging.info(f"Job is {job_status}: {job['run_page_url']}")
+            self.log.info(f"Job is {job_status}: {job['run_page_url']}")
 
         return (
             job["state"].get("result_state", job["state"]["life_cycle_state"]),
@@ -136,4 +135,4 @@ class JobsWrapper:
         job_name = self.jobs_api.get_job(job_id=job_id)["settings"]["name"]
         self.jobs_api.delete_job(job_id=job_id)
 
-        logging.info(f"Deleted job {job_name} ({job_id})")
+        self.log.info(f"Deleted job {job_name} ({job_id})")

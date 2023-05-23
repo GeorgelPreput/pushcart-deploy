@@ -43,8 +43,8 @@ class Setup:
         api_client : ApiClient
             Used to log target Databricks environment URL
         """
+        logging.basicConfig(level=logging.INFO)
         self.log = logging.getLogger(__name__)
-        self.log.setLevel(logging.INFO)
 
         self.log.info(f"Deploying Pushcart to Databricks Workspace: {api_client.url}")
 

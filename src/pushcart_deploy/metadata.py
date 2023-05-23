@@ -2,7 +2,7 @@
 
 Example:
 -------
-    metadata = Metadata("~/source/pushcart-config")
+    metadata = Metadata("/home/<username>/source/pushcart-config")
     metadata.create_backend_objects()
 
 Notes:
@@ -52,7 +52,6 @@ class Metadata:
     def __post_init_post_parse__(self) -> None:
         """Initialize logger."""
         self.log = logging.getLogger(__name__)
-        self.log.setLevel(logging.INFO)
 
     @staticmethod
     async def _load_pipeline_with_metadata(file_path: str) -> dict:
@@ -107,7 +106,7 @@ class Metadata:
                         else None
                     )
                     row["origin"] = transformation_config["origin"]
-                    row["into"] = transformation_config["into"]
+                    row["target"] = transformation_config["target"]
 
                     if row.get("validation_rule") and row.get("validation_action"):
                         row["validations"] = [

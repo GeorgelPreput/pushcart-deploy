@@ -39,7 +39,7 @@ class TestValidation:
 
 class TestGetConfigFromFile:
     @pytest.mark.asyncio()
-    async def test_get_config_from_file_valid_file_path(self, mocker):
+    async def test_get_config_from_file_valid_file_path(self):
         """Tests that the function successfully loads a valid JSON/YAML/TOML file."""
         test_file = Path("tests/data/job_settings.json")
         test_data = {"name": "test_job", "timeout_seconds": 60}
@@ -428,11 +428,13 @@ class TestConfiguration:
     def test_invalid_stage_object(self):
         """Tests that a valueerror is raised when an invalid stage object is provided to the configuration class."""
         with pytest.raises(ValueError):
-            invalid_source = {
-                "origin": "path/to/data",
-                "type": "csv",
-                "target": "temp_table",
-            }
+            invalid_source = [
+                {
+                    "origin": "path/to/data",
+                    "type": "csv",
+                    "target": "temp_table",
+                }
+            ]
             Configuration(**{"sources": invalid_source})
 
     def test_empty_configuration_object(self):

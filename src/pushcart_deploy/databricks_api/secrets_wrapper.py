@@ -47,7 +47,6 @@ class SecretsWrapper:
     def __post_init_post_parse__(self) -> None:
         """Initialize logger."""
         self.log = logging.getLogger(__name__)
-        self.log.setLevel(logging.INFO)
 
         self.secrets_api = SecretApi(self.client)
 

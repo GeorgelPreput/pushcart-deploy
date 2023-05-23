@@ -39,7 +39,6 @@ def _get_smallest_cluster_node_type(client: ApiClient = None) -> str:
     cluster_api = ClusterApi(client)
 
     log = logging.getLogger(__name__)
-    log.setLevel(logging.INFO)
 
     node_types = [
         t
@@ -70,7 +69,6 @@ def _get_newest_spark_version(client: ApiClient = None) -> str:
     cluster_api = ClusterApi(client)
 
     log = logging.getLogger(__name__)
-    log.setLevel(logging.INFO)
 
     spark_versions = [
         v
@@ -102,7 +100,6 @@ def _get_existing_cluster_id(
     cluster_api = ClusterApi(client)
 
     log = logging.getLogger(__name__)
-    log.setLevel(logging.INFO)
 
     clusters = cluster_api.list_clusters().get("clusters", [])
     clusters_filtered = [c for c in clusters if c["cluster_name"] == cluster_name]
@@ -136,7 +133,6 @@ class JobSettings:
     def __post_init_post_parse__(self) -> None:
         """Initialize logger."""
         self.log = logging.getLogger(__name__)
-        self.log.setLevel(logging.INFO)
 
     @validate_arguments(config={"arbitrary_types_allowed": True})
     def load_job_settings(

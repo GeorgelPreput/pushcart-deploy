@@ -1,4 +1,8 @@
 transformations:
+  - origin: vw__bronze__sample_config
+    target: vw__silver__sample_config
+    config: example.csv
+
   - origin: vw__silver__item_cost
     target: vw__silver__item_cost_monthly_avg
     sql_query: |
