@@ -1,12 +1,28 @@
+"""Create or sync a Git repository containing Pushcart configuration files.
+
+Wrapper class around the Databricks Repos API.
+
+Example:
+-------
+    repos_wrapper = ReposWrapper(api_client)
+    repos_wrapper.get_or_create_repo("pushcart", "https://github.com/GeorgelPreput/pushcart-config")
+    repos_wrapper.update("pushcart", "main")
+
+Notes:
+-----
+Needs a Databricks CLI ApiClient to be configured and connected to a Databricks
+environment.
+
+"""
+
 import logging
-import os
 import re
 from pathlib import Path
-from typing import Optional
 
 from databricks_cli.repos.api import ReposApi
 from databricks_cli.sdk.api_client import ApiClient
 from pydantic import HttpUrl, constr, dataclasses, validate_arguments, validator
+from requests.exceptions import HTTPError
 
 from pushcart_deploy.validation import (
     PydanticArbitraryTypesConfig,
@@ -16,31 +32,35 @@ from pushcart_deploy.validation import (
 
 @dataclasses.dataclass(config=PydanticArbitraryTypesConfig)
 class ReposWrapper:
-    """
-    The ReposWrapper class provides a wrapper around the Databricks Repos API. It
-    allows users to get or create a repository, update the repository with a new
+    """Wrapper around the Databricks Repos API.
+
+    Allows users to get or create a repository, update the repository with a new
     branch, and detect the Git provider from a given URL.
 
-    Fields:
-    - client: an ApiClient object used to interact with the Databricks Repos API
-    - log: a logger object used for logging messages
-    - repos_api: a ReposApi object used to interact with the Databricks Repos API
-    - repo_id: the ID of the repository (initialized to None)
+    Returns
+    -------
+    ReposWrapper
+        Wrapper object to sync a Pushcart configurations repo to the environment.
+
+    Raises
+    ------
+    ValueError
+        Git provider must be provided explicitly, unless it can be derived from the repo URL.
+    ValueError
+        Can only update a repo that has been initialized.
     """
 
     client: ApiClient
 
     @validator("client")
     @classmethod
-    def check_api_client(cls, value):
-        """
-        Validates that the ApiClient object is properly initialized
-        """
+    def check_api_client(cls, value: ApiClient) -> ApiClient:
+        """Validate that the ApiClient object is properly initialized."""
         return validate_databricks_api_client(value)
 
-    def __post_init_post_parse__(self):
+    def __post_init_post_parse__(self) -> None:
+        """Initialize logger."""
         self.log = logging.getLogger(__name__)
-        self.log.setLevel(logging.INFO)
 
         self.repos_api = ReposApi(self.client)
         self.repo_id = None
@@ -48,10 +68,7 @@ class ReposWrapper:
     @staticmethod
     @validate_arguments
     def _detect_git_provider(repo_url: str) -> str:
-        """
-        Detects the Git provider from a given URL
-        """
-
+        """Detect the Git provider from a given URL."""
         providers = {
             "gitHub": r"(?:https?://|git@)github\.com[:/]",
             "bitbucketCloud": r"(?:https?://|git@)bitbucket\.org[:/]",
@@ -67,40 +84,34 @@ class ReposWrapper:
             if re.match(regex, repo_url):
                 return provider
 
-        raise ValueError(
-            "Could not detect Git provider from URL. Please specify git_provider explicitly."
-        )
+        msg = "Could not detect Git provider from URL. Please specify git_provider explicitly."
+        raise ValueError(msg)
 
     @validate_arguments
     def get_or_create_repo(
         self,
         repo_user: constr(min_length=1, strict=True, regex=r"^[^'\"]*$"),
         git_url: HttpUrl,
-        git_provider: Optional[
-            constr(
-                min_length=1,
-                strict=True,
-                regex=r"^(gitHub|bitbucketCloud|gitLab|azureDevOpsServices|gitHubEnterprise|bitbucketServer|gitLabEnterpriseEdition|awsCodeCommit)$",
-            )
-        ] = None,
+        git_provider: constr(
+            min_length=1,
+            strict=True,
+            regex="^(gitHub|bitbucketCloud|gitLab|azureDevOpsServices|gitHubEnterprise|bitbucketServer|gitLabEnterpriseEdition|awsCodeCommit)$",
+        )
+        | None = None,
     ) -> str:
-        """
-        Gets or creates a repository with a given user, Git URL and Git provider (if
-        not detected from URL)
-        """
-
+        """Get or create a repository with a given user, Git URL and Git provider (if not detected from URL)."""
         if not git_provider:
             self.log.warning(
-                "No Git provider specified. Attempting to guess based on URL."
+                "No Git provider specified. Attempting to guess based on URL.",
             )
             git_provider = self._detect_git_provider(git_url)
 
         git_repo = git_url.split("/")[-1].replace(".git", "")
 
-        repo_path = Path(os.path.join("/", "Repos", repo_user, git_repo)).as_posix()
+        repo_path = (Path("/Repos") / repo_user / git_repo).as_posix()
         try:
             self.repo_id = self.repos_api.get_repo_id(path=repo_path)
-        except Exception:
+        except (HTTPError, ValueError, RuntimeError):
             self.log.warning("Failed to get repo ID")
 
         if not self.repo_id:
@@ -114,14 +125,15 @@ class ReposWrapper:
         return self.repo_id
 
     @validate_arguments
-    def update(self, git_branch: constr(min_length=1, strict=True, regex=r"^[^'\"]*$")):
-        """
-        Updates the Databricks repository with a new branch
-        """
-
+    def update(
+        self,
+        git_branch: constr(min_length=1, strict=True, regex=r"^[^'\"]*$"),
+    ) -> None:
+        """Update the Databricks repository with a new branch."""
         if not self.repo_id:
+            msg = "Repo not initialized. Please first run get_or_create_repo()"
             raise ValueError(
-                "Repo not initialized. Please first run get_or_create_repo()"
+                msg,
             )
 
         # TODO: Support Git tags as well

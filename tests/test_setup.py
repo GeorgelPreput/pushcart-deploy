@@ -25,14 +25,12 @@ from pushcart_deploy.validation import validate_databricks_api_client
 def mock_api_client():
     api_client = ApiClient(host="https://databricks.sample.com")
 
-    yield api_client
+    return api_client
 
 
 class TestReposWrapper:
     def test_create_repo_success(self, mocker, mock_api_client):
-        """
-        Tests that the get_or_create_repo method successfully creates a new repository.
-        """
+        """Tests that the get_or_create_repo method successfully creates a new repository."""
         mocker.patch.object(ReposApi, "__init__", return_value=None)
         mocker.patch.object(ReposApi, "get_repo_id", return_value=None)
         mocker.patch.object(ReposApi, "create", return_value={"id": "456"})
@@ -44,9 +42,7 @@ class TestReposWrapper:
         assert repo_id == "456"
 
     def test_get_existing_repo_success(self, mocker, mock_api_client):
-        """
-        Tests that the get_or_create_repo method successfully retrieves an existing repository.
-        """
+        """Tests that the get_or_create_repo method successfully retrieves an existing repository."""
         mocker.patch.object(ReposApi, "__init__", return_value=None)
         mocker.patch.object(ReposApi, "get_repo_id", return_value="123")
 
@@ -57,16 +53,14 @@ class TestReposWrapper:
         assert repo_id == "123"
 
     def test_update_invalid_repo(self, mock_api_client):
-        """
-        Tests that the update method raises a ValueError if attempting to update
+        """Tests that the update method raises a ValueError if attempting to update
         repository before initializing with get_or_create_repo.
         """
         with pytest.raises(ValueError):
             ReposWrapper(mock_api_client).update(git_branch="main")
 
     def test_detect_git_provider_warning(self, mock_api_client):
-        """
-        Tests that the detect_git_provider method raises ValueError if git provider
+        """Tests that the detect_git_provider method raises ValueError if git provider
         is not specified and cannot be detected from url.
         """
         with pytest.raises(ValueError) as e:
@@ -78,19 +72,17 @@ class TestReposWrapper:
         )
 
     def test_detect_git_provider_success(self, mock_api_client):
-        """
-        Tests that the detect_git_provider method successfully detects the correct git
+        """Tests that the detect_git_provider method successfully detects the correct git
         provider from a given url.
         """
         repos_wrapper = ReposWrapper(mock_api_client)
         git_provider = repos_wrapper._detect_git_provider(
-            "https://github.com/user/repo.git"
+            "https://github.com/user/repo.git",
         )
         assert git_provider == "gitHub"
 
     def test_get_or_create_repo_invalid_input(self, mock_api_client):
-        """
-        Tests that the get_or_create_repo method raises a ValueError if invalid input
+        """Tests that the get_or_create_repo method raises a ValueError if invalid input
         parameters are passed.
         """
         repos_wrapper = ReposWrapper(mock_api_client)
@@ -98,8 +90,7 @@ class TestReposWrapper:
             repos_wrapper.get_or_create_repo("", "https://github.com/user/repo.git")
 
     def test_update_invalid_input(self, mock_api_client):
-        """
-        Tests that the update method raises a ValueError if invalid input parameters
+        """Tests that the update method raises a ValueError if invalid input parameters
         are passed.
         """
         repos_wrapper = ReposWrapper(mock_api_client)
@@ -110,10 +101,9 @@ class TestReposWrapper:
 class TestGetSmallestClusterNodeType:
     #
     def test_get_smallest_cluster_node_type(self, mocker, mock_api_client):
-        """
-        Tests that the function returns the smallest cluster node type when given
+        """Tests that the function returns the smallest cluster node type when given
         multiple node types with different specifications, including some that
-        should be filtered out
+        should be filtered out.
         """
         node_types = [
             {
@@ -180,7 +170,9 @@ class TestGetSmallestClusterNodeType:
 
         mocker.patch.object(ClusterApi, "__init__", return_value=None)
         mocker.patch.object(
-            ClusterApi, "list_node_types", return_value={"node_types": node_types}
+            ClusterApi,
+            "list_node_types",
+            return_value={"node_types": node_types},
         )
 
         result = _get_smallest_cluster_node_type(mock_api_client)
@@ -189,10 +181,11 @@ class TestGetSmallestClusterNodeType:
 
     #
     def test_get_smallest_cluster_node_type_with_multiple_same_specs(
-        self, mocker, mock_api_client
+        self,
+        mocker,
+        mock_api_client,
     ):
-        """
-        Tests the behavior of the function when multiple node types have the same
+        """Tests the behavior of the function when multiple node types have the same
         specifications.
         """
         node_types = [
@@ -239,7 +232,9 @@ class TestGetSmallestClusterNodeType:
         ]
         mocker.patch.object(ClusterApi, "__init__", return_value=None)
         mocker.patch.object(
-            ClusterApi, "list_node_types", return_value={"node_types": node_types}
+            ClusterApi,
+            "list_node_types",
+            return_value={"node_types": node_types},
         )
 
         result = _get_smallest_cluster_node_type(mock_api_client)
@@ -247,11 +242,11 @@ class TestGetSmallestClusterNodeType:
         assert result == "3"
 
     def test_caching_behavior_get_smallest_cluster_node_type(
-        self, mocker, mock_api_client
+        self,
+        mocker,
+        mock_api_client,
     ):
-        """
-        Tests that the function has caching behavior.
-        """
+        """Tests that the function has caching behavior."""
         mocker.patch.object(ClusterApi, "__init__", return_value=None)
 
         node_types = [
@@ -264,10 +259,12 @@ class TestGetSmallestClusterNodeType:
                 "is_hidden": False,
                 "photon_driver_capable": True,
                 "photon_worker_capable": True,
-            }
+            },
         ]
         mocker.patch.object(
-            ClusterApi, "list_node_types", return_value={"node_types": node_types}
+            ClusterApi,
+            "list_node_types",
+            return_value={"node_types": node_types},
         )
 
         first_result = _get_smallest_cluster_node_type(mock_api_client)
@@ -282,10 +279,12 @@ class TestGetSmallestClusterNodeType:
                 "is_hidden": False,
                 "photon_driver_capable": True,
                 "photon_worker_capable": True,
-            }
+            },
         ]
         mocker.patch.object(
-            ClusterApi, "list_node_types", return_value={"node_types": node_types}
+            ClusterApi,
+            "list_node_types",
+            return_value={"node_types": node_types},
         )
 
         second_result = _get_smallest_cluster_node_type(mock_api_client)
@@ -294,10 +293,11 @@ class TestGetSmallestClusterNodeType:
 
 class TestGetNewestSparkVersion:
     def test_get_newest_spark_version_when_only_one_version_available(
-        self, mocker, mock_api_client
+        self,
+        mocker,
+        mock_api_client,
     ):
-        """
-        Tests that the function returns the newest Spark version when there are
+        """Tests that the function returns the newest Spark version when there are
         multiple versions available, some not containing "LTS", or containing "ML".
         """
         mocker.patch.object(ClusterApi, "__init__", return_value=None)
@@ -322,29 +322,27 @@ class TestGetNewestSparkVersion:
                         "key": "13.0.x-scala2.12",
                         "name": "13.0 (includes Apache Spark 3.4.0, Scala 2.12)",
                     },
-                ]
+                ],
             },
         )
         assert _get_newest_spark_version(mock_api_client) == "12.2.x-aarch64-scala2.12"
 
     def test_get_newest_spark_version_returns_empty_string_when_no_versions_available(
-        self, mocker, mock_api_client
+        self,
+        mocker,
+        mock_api_client,
     ):
-        """
-        Tests that the function returns None when there are no Spark versions available
-        """
+        """Tests that the function returns None when there are no Spark versions available."""
         mocker.patch.object(ClusterApi, "__init__", return_value=None)
         mocker.patch.object(
             ClusterApi,
             "spark_versions",
             return_value={"versions": []},
         )
-        assert _get_newest_spark_version(mock_api_client) == None
+        assert _get_newest_spark_version(mock_api_client) is None
 
     def test_caching_behavior_get_newest_spark_version(self, mocker, mock_api_client):
-        """
-        Tests that the function has caching behavior.
-        """
+        """Tests that the function has caching behavior."""
         mocker.patch.object(ClusterApi, "__init__", return_value=None)
 
         versions = [
@@ -354,7 +352,9 @@ class TestGetNewestSparkVersion:
             },
         ]
         mocker.patch.object(
-            ClusterApi, "spark_versions", return_value={"versions": versions}
+            ClusterApi,
+            "spark_versions",
+            return_value={"versions": versions},
         )
 
         first_result = _get_newest_spark_version(mock_api_client)
@@ -366,7 +366,9 @@ class TestGetNewestSparkVersion:
             },
         ]
         mocker.patch.object(
-            ClusterApi, "spark_versions", return_value={"versions": versions}
+            ClusterApi,
+            "spark_versions",
+            return_value={"versions": versions},
         )
 
         second_result = _get_newest_spark_version(mock_api_client)
@@ -375,15 +377,13 @@ class TestGetNewestSparkVersion:
 
 class TestGetExistingClusterId:
     def test_valid_input_returns_cluster_id(self, mocker, mock_api_client):
-        """
-        Tests that providing a valid client and cluster name returns the cluster ID.
-        """
+        """Tests that providing a valid client and cluster name returns the cluster ID."""
         mocker.patch.object(ClusterApi, "__init__", return_value=None)
         mocker.patch.object(
             ClusterApi,
             "list_clusters",
             return_value={
-                "clusters": [{"cluster_name": "test_cluster", "cluster_id": "12345"}]
+                "clusters": [{"cluster_name": "test_cluster", "cluster_id": "12345"}],
             },
         )
 
@@ -392,15 +392,13 @@ class TestGetExistingClusterId:
         assert result == "12345"
 
     def test_invalid_input_raises_exception(self, mocker, mock_api_client):
-        """
-        Tests that providing an invalid cluster name raises an exception.
-        """
+        """Tests that providing an invalid cluster name raises an exception."""
         mocker.patch.object(ClusterApi, "__init__", return_value=None)
         mocker.patch.object(
             ClusterApi,
             "list_clusters",
             return_value={
-                "clusters": [{"cluster_name": "test_cluster", "cluster_id": "12345"}]
+                "clusters": [{"cluster_name": "test_cluster", "cluster_id": "12345"}],
             },
         )
 
@@ -411,15 +409,13 @@ class TestGetExistingClusterId:
             _get_existing_cluster_id(client=mock_api_client, cluster_name=123)
 
     def test_nonexistent_cluster_returns_none(self, mocker, mock_api_client):
-        """
-        Tests that providing a non-existent cluster name returns None.
-        """
+        """Tests that providing a non-existent cluster name returns None."""
         mocker.patch.object(ClusterApi, "__init__", return_value=None)
         mocker.patch.object(
             ClusterApi,
             "list_clusters",
             return_value={
-                "clusters": [{"cluster_name": "test_cluster", "cluster_id": "12345"}]
+                "clusters": [{"cluster_name": "test_cluster", "cluster_id": "12345"}],
             },
         )
 
@@ -428,21 +424,23 @@ class TestGetExistingClusterId:
         assert result is None
 
     def test_caching_behavior_get_existing_cluster_id(self, mocker, mock_api_client):
-        """
-        Tests that the function has caching behavior.
-        """
+        """Tests that the function has caching behavior."""
         mocker.patch.object(ClusterApi, "__init__", return_value=None)
 
         clusters = [{"cluster_name": "first_cluster", "cluster_id": "12345"}]
         mocker.patch.object(
-            ClusterApi, "list_clusters", return_value={"versions": clusters}
+            ClusterApi,
+            "list_clusters",
+            return_value={"versions": clusters},
         )
 
         first_result = _get_existing_cluster_id(mock_api_client, "first_cluster")
 
         clusters = [{"cluster_name": "second_cluster", "cluster_id": "67890"}]
         mocker.patch.object(
-            ClusterApi, "list_clusters", return_value={"versions": clusters}
+            ClusterApi,
+            "list_clusters",
+            return_value={"versions": clusters},
         )
 
         second_result = _get_existing_cluster_id(mock_api_client, "first_cluster")
@@ -451,9 +449,7 @@ class TestGetExistingClusterId:
 
 class TestJobSettings:
     def test_load_job_settings_from_valid_file(self, mocker, mock_api_client):
-        """
-        Tests that job settings can be loaded from a valid JSON file.
-        """
+        """Tests that job settings can be loaded from a valid JSON file."""
         mocker.patch.object(ClusterApi, "__init__", return_value=None)
 
         job_settings = {"name": "test_job", "timeout_seconds": 60}
@@ -467,38 +463,41 @@ class TestJobSettings:
         assert loaded_settings == job_settings
 
     def test_load_job_settings_default_when_file_invalid(self, mocker, mock_api_client):
-        """
-        Tests that the default settings are returned if the given file could not be
-        loaded
+        """Tests that the default settings are returned if the given file could not be
+        loaded.
         """
         default_settings = {"name": "default_job", "timeout_seconds": 30}
 
         mocker.patch.object(ClusterApi, "__init__", return_value=None)
         mocker.patch.object(
-            JobSettings, "_get_default_job_settings", return_value=default_settings
+            JobSettings,
+            "_get_default_job_settings",
+            return_value=default_settings,
         )
         mocker.patch(
-            "pushcart_deploy.databricks_api.job_settings.get_config_from_file",
+            "json.loads",
             return_value=None,
         )
 
         job_settings = JobSettings(mock_api_client)
 
         result = job_settings.load_job_settings(
-            settings_path="tests/data/job_settings.json", default_settings="pipeline"
+            settings_path="tests/data/invalid_job_settings.json",
+            default_settings="pipeline",
         )
         assert result == default_settings
 
     def test_load_job_settings_when_file_invalid_and_no_default(
-        self, mocker, mock_api_client
+        self,
+        mocker,
+        mock_api_client,
     ):
-        """
-        Tests that the job settings cannot be loaded when the given file cannot be read
-        and no default job settings provided
+        """Tests that the job settings cannot be loaded when the given file cannot be read
+        and no default job settings provided.
         """
         mocker.patch.object(ClusterApi, "__init__", return_value=None)
         mocker.patch(
-            "pushcart_deploy.databricks_api.job_settings.get_config_from_file",
+            "json.loads",
             return_value=None,
         )
 
@@ -510,11 +509,11 @@ class TestJobSettings:
             _ = job.load_job_settings(settings_path=job_settings_path)
 
     def test_load_default_job_settings_for_invalid_job_type(
-        self, mocker, mock_api_client
+        self,
+        mocker,
+        mock_api_client,
     ):
-        """
-        Tests that default job settings cannot be loaded for an invalid job type.
-        """
+        """Tests that default job settings cannot be loaded for an invalid job type."""
         mocker.patch.object(ClusterApi, "__init__", return_value=None)
         job = JobSettings(mock_api_client)
 
@@ -522,9 +521,7 @@ class TestJobSettings:
             job.load_job_settings(default_settings="invalid_job_type")
 
     def test_validate_databricks_api_client_with_invalid_client(self):
-        """
-        Tests that the ApiClient input is properly validated with an invalid client.
-        """
+        """Tests that the ApiClient input is properly validated with an invalid client."""
         client = "invalid client"
 
         with pytest.raises(TypeError):
@@ -533,8 +530,7 @@ class TestJobSettings:
 
 class TestJobsWrapper:
     def test_get_or_create_release_job_new(self, mocker, mock_api_client):
-        """
-        Tests that get_or_create_release_job creates a new release job when one does
+        """Tests that get_or_create_release_job creates a new release job when one does
         not exist.
         """
         job_settings = {"name": "test_job", "job_type": "python"}
@@ -543,14 +539,13 @@ class TestJobsWrapper:
         jobs_wrapper.get_or_create_job = mocker.Mock(return_value="12345")
         mocker.patch.object(JobSettings, "load_job_settings", return_value=job_settings)
 
-        job_id = jobs_wrapper.get_or_create_release_job()
+        job_id = jobs_wrapper.get_or_create_checkpoint_job()
 
         assert job_id == "12345"
         jobs_wrapper.get_or_create_job.assert_called_once_with(job_settings)
 
     def test_get_or_create_job_existing(self, mocker, mock_api_client):
-        """
-        Tests that get_or_create_job retrieves an existing job when one exists and
+        """Tests that get_or_create_job retrieves an existing job when one exists and
         resets it to current settings.
         """
         mocker.patch.object(JobsApi, "reset_job", return_value=None)
@@ -565,13 +560,11 @@ class TestJobsWrapper:
         assert job_id == "12345"
         jobs_wrapper._get_job.assert_called_once_with("test_job")
         jobs_wrapper.jobs_api.reset_job.assert_called_once_with(
-            {"job_id": "12345", "new_settings": job_settings}
+            {"job_id": "12345", "new_settings": job_settings},
         )
 
     def test_run_job(self, mocker, mock_api_client):
-        """
-        Tests that run_job runs a job and returns its status and URL.
-        """
+        """Tests that run_job runs a job and returns its status and URL."""
         jobs_wrapper = JobsWrapper(mock_api_client)
 
         jobs_wrapper.jobs_api.run_now = mocker.Mock(return_value={"run_id": "67890"})
@@ -588,7 +581,7 @@ class TestJobsWrapper:
                     },
                     "run_page_url": "http://test.com",
                 },
-            ]
+            ],
         )
 
         status, url = jobs_wrapper.run_job("12345")
@@ -603,13 +596,11 @@ class TestJobsWrapper:
             spark_submit_params=None,
         )
         jobs_wrapper.runs_api.get_run.assert_has_calls(
-            [mocker.call("67890"), mocker.call("67890")]
+            [mocker.call("67890"), mocker.call("67890")],
         )
 
     def test_get_or_create_job_new(self, mocker, mock_api_client):
-        """
-        Tests that get_or_create_job creates a new job when one does not exist.
-        """
+        """Tests that get_or_create_job creates a new job when one does not exist."""
         mocker.patch.object(JobsApi, "list_jobs", return_value={"jobs": []})
         mocker.patch.object(JobsApi, "create_job", return_value={"job_id": 1234})
 
@@ -622,11 +613,11 @@ class TestJobsWrapper:
         jobs_wrapper.jobs_api.create_job.assert_called_once_with(job_settings)
 
     def test_delete_job(self, mocker, mock_api_client):
-        """
-        Tests that delete_job deletes a job.
-        """
+        """Tests that delete_job deletes a job."""
         mocker.patch.object(
-            JobsApi, "get_job", return_value={"settings": {"name": "test_job"}}
+            JobsApi,
+            "get_job",
+            return_value={"settings": {"name": "test_job"}},
         )
         mocker.patch.object(JobsApi, "delete_job", return_value=None)
 
@@ -638,8 +629,7 @@ class TestJobsWrapper:
         jobs_wrapper.jobs_api.delete_job.assert_called_once_with(job_id=job_id)
 
     def test_get_or_create_job_invalid_settings(self, mock_api_client):
-        """
-        Tests that an error is raised when invalid job settings are provided to
+        """Tests that an error is raised when invalid job settings are provided to
         get_or_create_job.
         """
         job_settings = {"invalid_field": "invalid_value"}
@@ -650,9 +640,7 @@ class TestJobsWrapper:
 
 class TestSecretsWrapper:
     def test_create_scope_if_not_exists_success(self, mocker, mock_api_client):
-        """
-        Tests that create_scope_if_not_exists creates a new scope if it does not exist.
-        """
+        """Tests that create_scope_if_not_exists creates a new scope if it does not exist."""
         mock_list_scopes = mocker.patch.object(SecretApi, "list_scopes")
         mock_list_scopes.return_value = {"scopes": []}
         mock_create_scope = mocker.patch.object(SecretApi, "create_scope")
@@ -669,8 +657,7 @@ class TestSecretsWrapper:
         )
 
     def test_create_scope_if_not_exists_already_exists(self, mocker, mock_api_client):
-        """
-        Tests that create_scope_if_not_exists does not create a new scope if it already
+        """Tests that create_scope_if_not_exists does not create a new scope if it already
         exists.
         """
         mock_list_scopes = mocker.patch.object(SecretApi, "list_scopes")
@@ -684,11 +671,10 @@ class TestSecretsWrapper:
         mock_create_scope.assert_not_called()
 
     def test_push_secrets_empty_dict(self, mocker, mock_api_client):
-        """
-        Tests that push_secrets does not push secrets if secrets_dict is empty.
-        """
+        """Tests that push_secrets does not push secrets if secrets_dict is empty."""
         mock_create_scope_if_not_exists = mocker.patch.object(
-            SecretsWrapper, "create_scope_if_not_exists"
+            SecretsWrapper,
+            "create_scope_if_not_exists",
         )
         secrets_wrapper = SecretsWrapper(mock_api_client)
 
@@ -697,12 +683,12 @@ class TestSecretsWrapper:
         mock_create_scope_if_not_exists.assert_not_called()
 
     def test_push_secrets_success(self, mocker, mock_api_client):
-        """
-        Tests that push_secrets pushes secrets to an existing scope.
-        """
+        """Tests that push_secrets pushes secrets to an existing scope."""
         mock_secrets_api_put_secret = mocker.patch.object(SecretApi, "put_secret")
         mocker.patch.object(
-            SecretApi, "list_scopes", return_value={"scopes": [{"name": "pushcart"}]}
+            SecretApi,
+            "list_scopes",
+            return_value={"scopes": [{"name": "pushcart"}]},
         )
 
         mock_api_client.default_headers = {"Authorization": "Bearer test_token"}
@@ -712,19 +698,23 @@ class TestSecretsWrapper:
         secret_scope_name = "pushcart"
 
         secrets_wrapper.push_secrets(
-            secret_scope_name=secret_scope_name, secrets_dict=secrets_dict
+            secret_scope_name=secret_scope_name,
+            secrets_dict=secrets_dict,
         )
 
         mock_secrets_api_put_secret.assert_called_once_with(
-            secret_scope_name, "test_key", "test_value", bytes_value=None
+            secret_scope_name,
+            "test_key",
+            "test_value",
+            bytes_value=None,
         )
 
     def test_invalid_secret_scope_name(self, mocker, mock_api_client):
-        """
-        Tests that an invalid secret_scope_name raises an error.
-        """
+        """Tests that an invalid secret_scope_name raises an error."""
         mocker.patch.object(
-            SecretApi, "list_scopes", return_value={"scopes": [{"name": "pushcart"}]}
+            SecretApi,
+            "list_scopes",
+            return_value={"scopes": [{"name": "pushcart"}]},
         )
         mock_api_client.default_headers = {"Authorization": "Bearer test_token"}
         secrets_wrapper = SecretsWrapper(mock_api_client)
@@ -734,15 +724,16 @@ class TestSecretsWrapper:
 
         with pytest.raises(ValueError):
             secrets_wrapper.push_secrets(
-                secret_scope_name=secret_scope_name, secrets_dict=secrets_dict
+                secret_scope_name=secret_scope_name,
+                secrets_dict=secrets_dict,
             )
 
     def test_invalid_key_or_value(self, mocker, mock_api_client):
-        """
-        Test that an invalid key or value in secrets_dict raises an error
-        """
+        """Test that an invalid key or value in secrets_dict raises an error."""
         mocker.patch.object(
-            SecretApi, "list_scopes", return_value={"scopes": [{"name": "pushcart"}]}
+            SecretApi,
+            "list_scopes",
+            return_value={"scopes": [{"name": "pushcart"}]},
         )
         mock_api_client.default_headers = {"Authorization": "Bearer test_token"}
         secrets_wrapper = SecretsWrapper(mock_api_client)
@@ -752,5 +743,6 @@ class TestSecretsWrapper:
 
         with pytest.raises(ValueError):
             secrets_wrapper.push_secrets(
-                secret_scope_name=secret_scope_name, secrets_dict=secrets_dict
+                secret_scope_name=secret_scope_name,
+                secrets_dict=secrets_dict,
             )
