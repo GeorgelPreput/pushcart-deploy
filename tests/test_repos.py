@@ -1,7 +1,6 @@
 import os
 from dataclasses import dataclass
 
-import dacite
 import pytest
 from databricks.sdk import GitCredentialsAPI
 from databricks_cli.repos.api import ReposApi
@@ -39,9 +38,9 @@ class TestReposWrapper:
         mocker.patch.object(
             GitCredentialsAPI,
             "create",
-            return_value=dacite.from_dict(
-                data_class=MockGitCredentialsAPI,
-                data={"credential_id": "123", "git_username": "test_user"},
+            return_value=MockGitCredentialsAPI(
+                credential_id="123",
+                git_username="test_user",
             ),
         )
 
