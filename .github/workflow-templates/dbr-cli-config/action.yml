@@ -1,0 +1,18 @@
+name: dbr-cli-config
+description: Configure Databricks CLI
+
+runs:
+  using: "composite"
+  steps:
+    - name: Create .databrickscfg
+      shell: bash
+      run: |
+        CONFIG_FILE="$HOME/.datatabrickscfg"
+
+        echo "[DEFAULT]" > $CONFIG_FILE
+        echo "host = $PUSHCART_DATABRICKS_HOST" >> $CONFIG_FILE
+        echo "token = $PUSHCART_DATABRICKS_TOKEN" >> $CONFIG_FILE
+        echo "jobs-api-version = 2.1" >> $CONFIG_FILE
+        echo "cluster_id = $PUSHCART_CLUSTER_ID" >> $CONFIG_FILE
+
+        echo ".datatabrickscfg file has been created in the home directory."
