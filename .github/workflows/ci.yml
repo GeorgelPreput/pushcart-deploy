@@ -19,6 +19,10 @@ jobs:
         uses: "./.github/workflow-templates/build-library"
       - name: test
         uses: "./.github/workflow-templates/test"
+        with:
+          databricks_host: ${{ secrets.DATABRICKS_HOST }}
+          databricks_token: ${{ secrets.DATABRICKS_TOKEN }}
+          databricks_cluster_id: ${{ secrets.DATABRICKS_CLUSTER_ID }}
       - name: semver
         uses: "./.github/workflow-templates/semver"
         with:

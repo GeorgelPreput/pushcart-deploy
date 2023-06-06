@@ -20,12 +20,9 @@ import logging
 
 from databricks_cli.sdk.api_client import ApiClient
 from databricks_cli.secrets.api import SecretApi
-from pydantic import Field, constr, dataclasses, validate_arguments, validator
+from pydantic import Field, constr, dataclasses, validate_arguments
 
-from pushcart_deploy.validation import (
-    PydanticArbitraryTypesConfig,
-    validate_databricks_api_client,
-)
+from pushcart_deploy.validation import PydanticArbitraryTypesConfig
 
 
 @dataclasses.dataclass(config=PydanticArbitraryTypesConfig)
@@ -37,12 +34,6 @@ class SecretsWrapper:
     """
 
     client: ApiClient
-
-    @validator("client")
-    @classmethod
-    def check_api_client(cls, value: ApiClient) -> ApiClient:
-        """Validate that the ApiClient object is properly initialized."""
-        return validate_databricks_api_client(value)
 
     def __post_init_post_parse__(self) -> None:
         """Initialize logger."""

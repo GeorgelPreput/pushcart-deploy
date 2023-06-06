@@ -1,0 +1,27 @@
+{
+    "name": "",
+    "catalog": "",
+    "target": "",
+    "channel": "PREVIEW",
+    "clusters": [
+        {
+            "label": "default",
+            "node_type_id": "test_node_type",
+            "autoscale": {
+                "min_workers": 2,
+                "max_workers": 4
+            }
+        }
+    ],
+    "libraries": [
+        {
+            "notebook": {
+                "path": ""
+            }
+        }
+    ],
+    "continuous": "true",
+    "configuration": {
+        "pushcart.pipeline_name": ""
+    }
+}

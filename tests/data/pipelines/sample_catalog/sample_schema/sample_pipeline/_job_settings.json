@@ -1,0 +1,12 @@
+{
+    "name": "",
+    "tasks": [
+        {
+            "task_key": "",
+            "pipeline_task": {
+                "pipeline_id": ""
+            }
+        }
+    ],
+    "timeout_seconds": 60
+}

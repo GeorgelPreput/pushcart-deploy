@@ -62,6 +62,7 @@ class Metadata:
         file_path_obj = Path(file_path)
         config["pipeline_name"] = file_path_obj.parent.name
         config["target_schema_name"] = file_path_obj.parent.parent.name
+        config["target_catalog_name"] = file_path_obj.parent.parent.parent.name
 
         if config.get("transformations"):
             for transformation in config["transformations"]:
@@ -80,9 +81,9 @@ class Metadata:
     async def _collect_pipeline_configs(self) -> list:
         pipeline_files = []
 
-        for extensions in ["*.json", "*.toml", "*.yaml", "*.yml"]:
+        for extension in ["*.json", "*.toml", "*.yaml", "*.yml"]:
             pipeline_files.extend(
-                glob(f"{self.config_dir}/pipelines/**/{extensions}", recursive=True),
+                glob(f"{self.config_dir}/pipelines/**/[!_]{extension}", recursive=True),
             )
 
         pipeline_tasks = [self._load_pipeline_with_metadata(f) for f in pipeline_files]
@@ -145,26 +146,34 @@ class Metadata:
     def _group_pipeline_configs(pipeline_configs: list) -> list:
         sorted_pipeline_configs = sorted(
             pipeline_configs,
-            key=itemgetter("target_schema_name", "pipeline_name"),
+            key=itemgetter(
+                "target_catalog_name",
+                "target_schema_name",
+                "pipeline_name",
+            ),
         )
         grouped_elements = groupby(
             sorted_pipeline_configs,
-            key=itemgetter("target_schema_name", "pipeline_name"),
+            key=itemgetter(
+                "target_catalog_name",
+                "target_schema_name",
+                "pipeline_name",
+            ),
         )
 
         grouped_pipeline_configs = []
 
-        for (schema, pipeline), group in grouped_elements:
+        for (catalog, schema, pipeline), group in grouped_elements:
             merged_pipeline_stages_dict = defaultdict(list)
             for d in group:
                 for k, v in d.items():
-                    merged_pipeline_stages_dict[k].extend(v) if isinstance(
-                        v,
-                        list,
-                    ) else merged_pipeline_stages_dict[k].append(v)
+                    if isinstance(v, list):
+                        for item in v:
+                            item["target_catalog_name"] = catalog
+                            item["target_schema_name"] = schema
+                            item["pipeline_name"] = pipeline
+                        merged_pipeline_stages_dict[k].extend(v)
 
-            merged_pipeline_stages_dict["target_schema_name"] = schema
-            merged_pipeline_stages_dict["pipeline_name"] = pipeline
             grouped_pipeline_configs.append(dict(merged_pipeline_stages_dict))
 
         return grouped_pipeline_configs
@@ -209,3 +218,44 @@ class Metadata:
         asyncio.run(self._enrich_pipeline_configs(pipeline_configs))
         validated_pipeline_configs = self._validate_pipeline_configs(pipeline_configs)
         self._create_metadata_tables(validated_pipeline_configs)
+
+    @staticmethod
+    def get_pipeline_list_from_backend_objects() -> list:
+        """Get a list of dicts with all the pipelines available in the metadata tables.
+
+        Returns
+        -------
+        dict
+            a dict with pipeline items, e.g. [{ pipeline_name: target_schema_name }, ...]
+        """
+        spark = DatabricksSession.builder.getOrCreate()
+
+        sources_df = spark.table("pushcart.sources").select(
+            "target_catalog_name",
+            "target_schema_name",
+            "pipeline_name",
+        )
+        transformations_df = spark.table("pushcart.transformations").select(
+            "target_catalog_name",
+            "target_schema_name",
+            "pipeline_name",
+        )
+        destinations_df = spark.table("pushcart.destinations").select(
+            "target_catalog_name",
+            "target_schema_name",
+            "pipeline_name",
+        )
+
+        pipelines_df = (
+            sources_df.union(transformations_df).union(destinations_df).distinct()
+        )
+
+        return [
+            {
+                "target_catalog_name": row["target_catalog_name"],
+                "target_schema_name": row["target_schema_name"],
+                "pipeline_name": row["pipeline_name"],
+                "pipeline_id": None,
+            }
+            for row in pipelines_df.collect()
+        ]

@@ -19,6 +19,7 @@ data pipeline defined.
 import csv
 import json
 import logging
+import os
 from collections import defaultdict
 from collections.abc import AsyncIterator
 from io import StringIO
@@ -31,7 +32,6 @@ import yaml
 from pydantic import (
     Field,
     conint,
-    conlist,
     constr,
     dataclasses,
     root_validator,
@@ -68,6 +68,46 @@ async def get_transformations_from_csv(csv_path: Path | str) -> AsyncIterator[di
 
         for row in reader:
             yield row
+
+
+def expect_at_most_one_file(settings_path: Path | str) -> Path | None:
+    """Check whether there is at most one configuration file for the given path.
+
+    Parameters
+    ----------
+    settings_path : Path | str
+        Path to a configuration file, may omit extension
+
+    Returns
+    -------
+    Path | None
+        Path containing the absolute path to the existing file
+
+    Raises
+    ------
+    FileExistsError
+        Can only have at most one configuration file for the given name. Extension
+        can be any one of .json, .toml, .yml or .yaml
+    """
+    if isinstance(settings_path, str):
+        settings_path = Path(settings_path)
+
+    existing_paths = []
+
+    for ext in [".json", ".toml", ".yml", ".yaml"]:
+        file_path = settings_path.with_suffix(ext).resolve()
+
+        if file_path.is_file():
+            existing_paths.append(file_path)
+
+    if not existing_paths:
+        return None
+
+    if len(existing_paths) > 1:
+        msg = f"Expecting only one {settings_path}.[json|toml|yml|yaml] file. Found:\n{os.linesep.join(existing_paths)}"
+        raise FileExistsError(msg)
+
+    return existing_paths[0]
 
 
 @validate_arguments
@@ -161,65 +201,6 @@ class Validation:
 
 
 @dataclasses.dataclass
-class ClusterAutoscale:
-    """Provides a way to configure cluster autoscaling."""
-
-    min_workers: int
-    max_workers: int
-    mode: constr(to_upper=True, strict=True, regex=r"\A(ENHANCED|LEGACY)\Z")
-
-
-@dataclasses.dataclass
-class Cluster:
-    """Cluster specification for scheduling jobs.
-
-    Returns
-    -------
-    Cluster
-        API specification as per https://docs.databricks.com/delta-live-tables/api-guide.html#pipelines-new-cluster
-
-    Raises
-    ------
-    ValueError
-        Cluster definition must have either a set number of workers or autoscaling information
-    ValueError
-        Cluster definition cannot both have a set number of workers and autoscaling information
-    """
-
-    label: constr(to_lower=True, strict=True, regex=r"\A(default|maintenance)\Z")
-    node_type_id: constr(min_length=1, strict=True)
-    spark_conf: dict[str, str] | None = Field(default_factory=dict)
-    aws_attributes: dict[str, str] | None = Field(default_factory=dict)
-    driver_node_type_id: constr(min_length=1, strict=True) | None = None
-    ssh_public_keys: list[str] | None = Field(default_factory=list)
-    custom_tags: dict[str, str] | None = Field(default_factory=dict)
-    cluster_log_conf: dict[str, dict[str, str]] | None = Field(default_factory=dict)
-    spark_env_vars: dict[str, str] | None = Field(default_factory=dict)
-    init_scripts: list[dict[str, dict[str, str]]] | None = Field(
-        default_factory=list,
-    )
-    instance_pool_id: constr(min_length=1, strict=True) | None = None
-    driver_instance_pool_id: constr(min_length=1, strict=True) | None = None
-    policy_id: constr(min_length=1, strict=True) | None = None
-    num_workers: int | None = None
-    autoscale: ClusterAutoscale | None = None
-
-    @root_validator(pre=True)
-    @classmethod
-    def check_only_one_of_autoscale_or_num_workers_defined(cls, values: dict) -> dict:
-        """Check that one and only one of the autoscale or num_workers fields is defined."""
-        if not any(values[v] for v in ["autoscale", "num_workers"]):
-            msg = "No cluster defined. Please provide either autoscale or a num_workers"
-            raise ValueError(
-                msg,
-            )
-        if all(values[t] for t in ["autoscale", "num_workers"]):
-            msg = "Only one of autoscale or num_workers allowed"
-            raise ValueError(msg)
-        return values
-
-
-@dataclasses.dataclass
 class Source:
     """Represents a data source and its associated metadata.
 
@@ -238,6 +219,10 @@ class Source:
         Only one action (WARN | DROP | FAIL) can be defined as consequence to a data
         validation rule
     """
+
+    target_catalog_name: constr(strip_whitespace=True, min_length=1, strict=True)
+    target_schema_name: constr(strip_whitespace=True, min_length=1, strict=True)
+    pipeline_name: constr(strip_whitespace=True, min_length=1, strict=True)
 
     origin: constr(min_length=1, strict=True)
     datatype: constr(min_length=1, strict=True)
@@ -278,6 +263,10 @@ class Transformation:
         Only one action (WARN | DROP | FAIL) can be defined as consequence to a data
         validation rule
     """
+
+    target_catalog_name: constr(strip_whitespace=True, min_length=1, strict=True)
+    target_schema_name: constr(strip_whitespace=True, min_length=1, strict=True)
+    pipeline_name: constr(strip_whitespace=True, min_length=1, strict=True)
 
     origin: constr(min_length=1, strict=True)
     target: constr(min_length=1, strict=True)
@@ -344,6 +333,10 @@ class Destination:
         validation rule
     """
 
+    target_catalog_name: constr(strip_whitespace=True, min_length=1, strict=True)
+    target_schema_name: constr(strip_whitespace=True, min_length=1, strict=True)
+    pipeline_name: constr(strip_whitespace=True, min_length=1, strict=True)
+
     origin: constr(min_length=1, strict=True)
     target: constr(min_length=1, strict=True)
     mode: constr(min_length=1, strict=True, regex=r"^(append|upsert)$")
@@ -393,9 +386,9 @@ class Configuration:
     Returns
     -------
     Configuration
-        Contains optional lists of Cluster, Source, Transformation, and Destination
-        objects, which define the stages of the pipeline. Provides validation to ensure
-        that at least one stage is defined in the configuration file.
+        Contains optional lists of Source, Transformation, and Destination objects,
+        which define the stages of the pipeline. Provides validation to ensure that
+        at least one stage is defined in the configuration file.
 
     Raises
     ------
@@ -406,7 +399,6 @@ class Configuration:
         unique.
     """
 
-    clusters: conlist(Cluster, max_items=1) | None = None
     sources: list[Source] | None = Field(default_factory=list)
     transformations: list[Transformation] | None = Field(default_factory=list)
     destinations: list[Destination] | None = Field(default_factory=list)
