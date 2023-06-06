@@ -39,10 +39,14 @@ class TestValidation:
 
 class TestGetConfigFromFile:
     @pytest.mark.asyncio()
-    async def test_get_config_from_file_valid_file_path(self):
+    async def test_get_config_from_file_valid_file_path(self, mocker):
         """Tests that the function successfully loads a valid JSON/YAML/TOML file."""
-        test_file = Path("tests/data/job_settings.json")
-        test_data = {"name": "test_job", "timeout_seconds": 60}
+        test_file = Path(
+            "tests/data/pipelines/sample_catalog/sample_schema/sample_pipeline/_job_settings.json"
+        )
+        test_data = {"name": "", "timeout_seconds": 60}
+
+        mocker.patch("json.loads", return_value=test_data)
 
         result = await get_config_from_file(test_file)
 
@@ -128,17 +132,32 @@ class TestGetMultipleValidationsWithSameRule:
 class TestSource:
     def test_create_source_with_valid_data(self):
         """Tests that a source object can be created with valid data, type, and target fields."""
-        origin = "./tests/data/example.csv"
+        target_catalog_name = "sample_catalog"
+        target_schema_name = "sample_schema"
+        pipeline_name = "sample_pipeline"
+
+        origin = "./tests/data/sample_catalog/sample_schema/sample_pipeline/example.csv"
         type = "csv"
         target = "my_view"
-        source = Source(origin=origin, datatype=type, target=target)
+        source = Source(
+            target_catalog_name=target_catalog_name,
+            target_schema_name=target_schema_name,
+            pipeline_name=pipeline_name,
+            origin=origin,
+            datatype=type,
+            target=target,
+        )
         assert source.origin == origin
         assert source.datatype == type
         assert source.target == target
 
     def test_create_source_with_optional_params_and_validations(self):
         """Tests that a source object can be created with optional params and validations fields."""
-        origin = "./tests/data/example.csv"
+        target_catalog_name = "sample_catalog"
+        target_schema_name = "sample_schema"
+        pipeline_name = "sample_pipeline"
+
+        origin = "./tests/data/sample_catalog/sample_schema/sample_pipeline/example.csv"
         type = "csv"
         target = "my_view"
         params = '{"delimiter": ","}'
@@ -151,6 +170,9 @@ class TestSource:
             },
         ]
         source = Source(
+            target_catalog_name=target_catalog_name,
+            target_schema_name=target_schema_name,
+            pipeline_name=pipeline_name,
             origin=origin,
             datatype=type,
             target=target,
@@ -169,27 +191,81 @@ class TestSource:
         ]
 
     def test_create_source_with_invalid_data(self):
-        """Tests that a source object cannot be created with empty strings in the data,
-        type and target fields.
+        """Tests that a source object cannot be created with empty strings in the
+        target_catalog_name, target_schema_name, pipeline_name, origin, type and target fields.
         """
         with pytest.raises(ValueError):
-            Source(origin="", datatype="csv", target="my_view")
+            Source(
+                target_catalog_name="",
+                target_schema_name="sample_schema",
+                pipeline_name="sample_pipeline",
+                origin="./tests/data/sample_catalog/sample_schema/sample_pipeline/example.csv",
+                datatype="csv",
+                target="my_view",
+            )
         with pytest.raises(ValueError):
-            Source(origin="./tests/data/example.csv", datatype="", target="my_view")
+            Source(
+                target_catalog_name="sample_catalog",
+                target_schema_name="",
+                pipeline_name="sample_pipeline",
+                origin="./tests/data/sample_catalog/sample_schema/sample_pipeline/example.csv",
+                datatype="csv",
+                target="my_view",
+            )
         with pytest.raises(ValueError):
-            Source(origin="./tests/data/example.csv", datatype="csv", target="")
+            Source(
+                target_catalog_name="sample_catalog",
+                target_schema_name="sample_schema",
+                pipeline_name="",
+                origin="./tests/data/sample_catalog/sample_schema/sample_pipeline/example.csv",
+                datatype="csv",
+                target="my_view",
+            )
+        with pytest.raises(ValueError):
+            Source(
+                target_catalog_name="sample_catalog",
+                target_schema_name="sample_schema",
+                pipeline_name="sample_pipeline",
+                origin="",
+                datatype="csv",
+                target="my_view",
+            )
+        with pytest.raises(ValueError):
+            Source(
+                target_catalog_name="sample_catalog",
+                target_schema_name="sample_schema",
+                pipeline_name="sample_pipeline",
+                origin="./tests/data/sample_catalog/sample_schema/sample_pipeline/example.csv",
+                datatype="",
+                target="my_view",
+            )
+        with pytest.raises(ValueError):
+            Source(
+                target_catalog_name="sample_catalog",
+                target_schema_name="sample_schema",
+                pipeline_name="sample_pipeline",
+                origin="./tests/data/sample_catalog/sample_schema/sample_pipeline/example.csv",
+                datatype="csv",
+                target="",
+            )
 
     def test_source_allows_optional_params_and_validations(self):
         """Test that the Source class allows for optional parameters and validations to be
         associated with the data source.
         """
         source_with_params = Source(
+            target_catalog_name="sample_catalog",
+            target_schema_name="sample_schema",
+            pipeline_name="sample_pipeline",
             origin="data/example.csv",
             datatype="csv",
             target="my_view",
             params='{"delimiter": ","}',
         )
         source_with_validations = Source(
+            target_catalog_name="sample_catalog",
+            target_schema_name="sample_schema",
+            pipeline_name="sample_pipeline",
             origin="data/example.csv",
             datatype="csv",
             target="my_view",
@@ -206,6 +282,9 @@ class TestTransformation:
         instantiated and validated.
         """
         transformation = Transformation(
+            target_catalog_name="sample_catalog",
+            target_schema_name="sample_schema",
+            pipeline_name="sample_pipeline",
             origin="some data",
             target="some output",
             column_order=1,
@@ -219,6 +298,9 @@ class TestTransformation:
                 {"validation_rule": "rule2", "validation_action": "DROP"},
             ],
         )
+        assert transformation.target_catalog_name == "sample_catalog"
+        assert transformation.target_schema_name == "sample_schema"
+        assert transformation.pipeline_name == "sample_pipeline"
         assert transformation.origin == "some data"
         assert transformation.target == "some output"
         assert transformation.column_order == 1
@@ -236,10 +318,16 @@ class TestTransformation:
         validated.
         """
         transformation = Transformation(
+            target_catalog_name="sample_catalog",
+            target_schema_name="sample_schema",
+            pipeline_name="sample_pipeline",
             origin="some data",
             target="some output",
             sql_query="SELECT * FROM table",
         )
+        assert transformation.target_catalog_name == "sample_catalog"
+        assert transformation.target_schema_name == "sample_schema"
+        assert transformation.pipeline_name == "sample_pipeline"
         assert transformation.origin == "some data"
         assert transformation.target == "some output"
         assert transformation.sql_query == "SELECT * FROM table"
@@ -251,12 +339,18 @@ class TestTransformation:
         """
         with pytest.raises(ValueError):
             Transformation(
+                target_catalog_name="sample_catalog",
+                target_schema_name="sample_schema",
+                pipeline_name="sample_pipeline",
                 origin="",
                 target="my_output_view",
                 sql_query="SELECT * FROM table",
             )
         with pytest.raises(ValueError):
             Transformation(
+                target_catalog_name="sample_catalog",
+                target_schema_name="sample_schema",
+                pipeline_name="sample_pipeline",
                 origin="my_input_view",
                 target="",
                 sql_query="SELECT * FROM table",
@@ -268,6 +362,9 @@ class TestTransformation:
         """
         with pytest.raises(ValueError):
             Transformation(
+                target_catalog_name="sample_catalog",
+                target_schema_name="sample_schema",
+                pipeline_name="sample_pipeline",
                 origin="my_input_view",
                 target="my_output_view",
                 column_order=1,
@@ -279,7 +376,13 @@ class TestTransformation:
         correctly validated.
         """
         with pytest.raises(ValueError):
-            Transformation(origin="test", target="test")
+            Transformation(
+                target_catalog_name="sample_catalog",
+                target_schema_name="sample_schema",
+                pipeline_name="sample_pipeline",
+                origin="test",
+                target="test",
+            )
 
     def test_multiple_validations_with_same_rule(self):
         """Tests that multiple validation objects with the same validation rule are
@@ -290,6 +393,9 @@ class TestTransformation:
 
         with pytest.raises(ValueError) as e:
             Transformation(
+                target_catalog_name="sample_catalog",
+                target_schema_name="sample_schema",
+                pipeline_name="sample_pipeline",
                 origin="my_input_view",
                 target="my_output_view",
                 column_order=1,
@@ -302,6 +408,9 @@ class TestDestination:
     def test_valid_input_data(self):
         """Tests that the destination class can be instantiated with valid input data."""
         dest = Destination(
+            target_catalog_name="sample_catalog",
+            target_schema_name="sample_schema",
+            pipeline_name="sample_pipeline",
             origin="my_data",
             target="my_table",
             path="/path/to/destination",
@@ -313,6 +422,9 @@ class TestDestination:
                 {"validation_rule": "col2 < 100", "validation_action": "DROP"},
             ],
         )
+        assert dest.target_catalog_name == "sample_catalog"
+        assert dest.target_schema_name == "sample_schema"
+        assert dest.pipeline_name == "sample_pipeline"
         assert dest.origin == "my_data"
         assert dest.target == "my_table"
         assert dest.path == "/path/to/destination"
@@ -326,9 +438,22 @@ class TestDestination:
         are missing.
         """
         with pytest.raises(TypeError):
-            Destination(origin="my_data", mode="append")
+            Destination(
+                target_catalog_name="sample_catalog",
+                target_schema_name="sample_schema",
+                pipeline_name="sample_pipeline",
+                origin="my_data",
+                mode="append",
+            )
         with pytest.raises(ValueError):
-            Destination(origin="my_data", mode="append", target=None)
+            Destination(
+                target_catalog_name="sample_catalog",
+                target_schema_name="sample_schema",
+                pipeline_name="sample_pipeline",
+                origin="my_data",
+                mode="append",
+                target=None,
+            )
 
     def test_invalid_mode_value(self):
         """Tests that the destination class raises a ValueError when an invalid mode value
@@ -336,6 +461,9 @@ class TestDestination:
         """
         with pytest.raises(ValueError):
             Destination(
+                target_catalog_name="sample_catalog",
+                target_schema_name="sample_schema",
+                pipeline_name="sample_pipeline",
                 origin="my_data",
                 target="my_table",
                 path="/path/to/destination",
@@ -348,6 +476,9 @@ class TestDestination:
         """
         with pytest.raises(KeyError):
             Destination(
+                target_catalog_name="sample_catalog",
+                target_schema_name="sample_schema",
+                pipeline_name="sample_pipeline",
                 origin="test_origin",
                 target="test_target",
                 path="test_path",
@@ -360,6 +491,9 @@ class TestDestination:
         """
         with pytest.raises(ValueError):
             Destination(
+                target_catalog_name="sample_catalog",
+                target_schema_name="sample_schema",
+                pipeline_name="sample_pipeline",
                 origin="",
                 target="test_target",
                 path="test_path",
@@ -374,6 +508,9 @@ class TestDestination:
         """
         with pytest.raises(ValueError):
             Destination(
+                target_catalog_name="sample_catalog",
+                target_schema_name="sample_schema",
+                pipeline_name="sample_pipeline",
                 origin="test_origin",
                 target="test_target",
                 path="test_path",
@@ -392,23 +529,43 @@ class TestConfiguration:
         """Tests that a configuration object can be created with all three fields defined."""
         config_dict = {
             "sources": [
-                {"origin": "path/to/data", "datatype": "csv", "target": "temp_table"},
+                {
+                    "target_catalog_name": "sample_catalog",
+                    "target_schema_name": "sample_schema",
+                    "pipeline_name": "sample_pipeline",
+                    "origin": "path/to/data",
+                    "datatype": "csv",
+                    "target": "temp_table",
+                },
             ],
             "transformations": [
                 {
+                    "target_catalog_name": "sample_catalog",
+                    "target_schema_name": "sample_schema",
+                    "pipeline_name": "sample_pipeline",
                     "origin": "temp_table",
                     "target": "output_table",
                     "sql_query": "SELECT * FROM temp_table",
                 },
             ],
             "destinations": [
-                {"origin": "output_table", "target": "delta_table", "mode": "append"},
+                {
+                    "target_catalog_name": "sample_catalog",
+                    "target_schema_name": "sample_schema",
+                    "pipeline_name": "sample_pipeline",
+                    "origin": "output_table",
+                    "target": "delta_table",
+                    "mode": "append",
+                },
             ],
         }
         config = Configuration(**config_dict)
 
         assert config.sources == [
             Source(
+                target_catalog_name="sample_catalog",
+                target_schema_name="sample_schema",
+                pipeline_name="sample_pipeline",
                 origin="path/to/data",
                 datatype="csv",
                 target="temp_table",
@@ -416,13 +573,23 @@ class TestConfiguration:
         ]
         assert config.transformations == [
             Transformation(
+                target_catalog_name="sample_catalog",
+                target_schema_name="sample_schema",
+                pipeline_name="sample_pipeline",
                 origin="temp_table",
                 target="output_table",
                 sql_query="SELECT * FROM temp_table",
             ),
         ]
         assert config.destinations == [
-            Destination(origin="output_table", target="delta_table", mode="append"),
+            Destination(
+                target_catalog_name="sample_catalog",
+                target_schema_name="sample_schema",
+                pipeline_name="sample_pipeline",
+                origin="output_table",
+                target="delta_table",
+                mode="append",
+            ),
         ]
 
     def test_invalid_stage_object(self):

@@ -4,9 +4,10 @@ Wrapper class around the Databricks Repos API.
 
 Example:
 -------
-    repos_wrapper = ReposWrapper(api_client)
-    repos_wrapper.get_or_create_repo("pushcart", "https://github.com/GeorgelPreput/pushcart-config")
-    repos_wrapper.update("pushcart", "main")
+    repos_wrapper = ReposWrapper(api_client, local_config_dir_path)
+    repos_wrapper.get_or_create_git_credentials()
+    repos_wrapper.get_or_create_repo()
+    repos_wrapper.update()
 
 Notes:
 -----
@@ -14,20 +15,21 @@ Needs a Databricks CLI ApiClient to be configured and connected to a Databricks
 environment.
 
 """
-
+import asyncio
 import logging
-import re
+import os
 from pathlib import Path
 
+from databricks.sdk import GitCredentialsAPI
+from databricks.sdk.core import ApiClient as SdkApiClient
 from databricks_cli.repos.api import ReposApi
 from databricks_cli.sdk.api_client import ApiClient
-from pydantic import HttpUrl, constr, dataclasses, validate_arguments, validator
+from databricks_cli.workspace.api import WorkspaceApi
+from pydantic import DirectoryPath, dataclasses
 from requests.exceptions import HTTPError
 
-from pushcart_deploy.validation import (
-    PydanticArbitraryTypesConfig,
-    validate_databricks_api_client,
-)
+from pushcart_deploy.configuration import expect_at_most_one_file, get_config_from_file
+from pushcart_deploy.validation import PydanticArbitraryTypesConfig
 
 
 @dataclasses.dataclass(config=PydanticArbitraryTypesConfig)
@@ -35,106 +37,96 @@ class ReposWrapper:
     """Wrapper around the Databricks Repos API.
 
     Allows users to get or create a repository, update the repository with a new
-    branch, and detect the Git provider from a given URL.
-
-    Returns
-    -------
-    ReposWrapper
-        Wrapper object to sync a Pushcart configurations repo to the environment.
-
-    Raises
-    ------
-    ValueError
-        Git provider must be provided explicitly, unless it can be derived from the repo URL.
-    ValueError
-        Can only update a repo that has been initialized.
+    branch, and detect the Git provider from a given URL. Also handles Git
+    credentials.
     """
 
-    client: ApiClient
-
-    @validator("client")
-    @classmethod
-    def check_api_client(cls, value: ApiClient) -> ApiClient:
-        """Validate that the ApiClient object is properly initialized."""
-        return validate_databricks_api_client(value)
+    api_client: ApiClient
+    config_dir: DirectoryPath
 
     def __post_init_post_parse__(self) -> None:
-        """Initialize logger."""
+        """Initialize logger and object configuration."""
         self.log = logging.getLogger(__name__)
 
-        self.repos_api = ReposApi(self.client)
+        self.workspace_api = WorkspaceApi(self.api_client)
+        self.repos_api = ReposApi(self.api_client)
+        self.git_creds = GitCredentialsAPI(SdkApiClient())
         self.repo_id = None
 
-    @staticmethod
-    @validate_arguments
-    def _detect_git_provider(repo_url: str) -> str:
-        """Detect the Git provider from a given URL."""
-        providers = {
-            "gitHub": r"(?:https?://|git@)github\.com[:/]",
-            "bitbucketCloud": r"(?:https?://|git@)bitbucket\.org[:/]",
-            "gitLab": r"(?:https?://|git@)gitlab\.com[:/]",
-            "azureDevOpsServices": r"(?:https?://|git@ssh?\.?)([\w-]+@)?\.?dev\.azure\.com[:/]",
-            "gitHubEnterprise": r"(?:https?://|git@)([\w-]+)\.github(?:usercontent)?\.com[:/]",
-            "bitbucketServer": r"(?:https?://|git@)([\w-]+)\.bitbucket(?:usercontent)?\.com[:/]",
-            "gitLabEnterpriseEdition": r"(?:https?://|git@)([\w-]+)\.gitlab(?:usercontent)?\.com[:/]",
-            "awsCodeCommit": r"(?:https?://|git@)git-codecommit\.[^/]+\.amazonaws\.com[:/]",
-        }
-
-        for provider, regex in providers.items():
-            if re.match(regex, repo_url):
-                return provider
-
-        msg = "Could not detect Git provider from URL. Please specify git_provider explicitly."
-        raise ValueError(msg)
-
-    @validate_arguments
-    def get_or_create_repo(
-        self,
-        repo_user: constr(min_length=1, strict=True, regex=r"^[^'\"]*$"),
-        git_url: HttpUrl,
-        git_provider: constr(
-            min_length=1,
-            strict=True,
-            regex="^(gitHub|bitbucketCloud|gitLab|azureDevOpsServices|gitHubEnterprise|bitbucketServer|gitLabEnterpriseEdition|awsCodeCommit)$",
+        settings_path = expect_at_most_one_file(
+            self.config_dir / "setup" / "pushcart-deploy",
         )
-        | None = None,
-    ) -> str:
-        """Get or create a repository with a given user, Git URL and Git provider (if not detected from URL)."""
-        if not git_provider:
-            self.log.warning(
-                "No Git provider specified. Attempting to guess based on URL.",
+        self.settings = asyncio.run(get_config_from_file(settings_path))
+
+    def get_or_create_git_credentials(self) -> str:
+        """Check if Git credentials exist in Databricks Repos and create them if not.
+
+        Returns
+        -------
+        str
+            Unique ID for Git credential object in Databricks Environment.
+        """
+        git_username = os.environ[self.settings["git_username_envvar"]]
+        git_token = os.environ[self.settings["git_token_envvar"]]
+
+        existing_creds = [
+            c for c in self.git_creds.list() if c.git_username == git_username
+        ]
+
+        if existing_creds:
+            self.log.info(
+                f"Found existing Git credentials for user {existing_creds[0].git_username}",
             )
-            git_provider = self._detect_git_provider(git_url)
+            return existing_creds[0].credential_id
 
-        git_repo = git_url.split("/")[-1].replace(".git", "")
+        new_creds = self.git_creds.create(
+            git_provider=self.settings["git_provider"],
+            git_username=git_username,
+            personal_access_token=git_token,
+        )
+        self.log.info(f"Created Git credentials for user {new_creds.git_username}")
 
-        repo_path = (Path("/Repos") / repo_user / git_repo).as_posix()
+        return new_creds.credential_id
+
+    def get_or_create_repo(self) -> str:
+        """Get or create a repository with a given user, Git URL and Git provider (if not detected from URL)."""
+        git_repo = self.settings["git_url"].split("/")[-1].replace(".git", "")
+        repo_path = (Path("/Repos") / self.settings["repos_user"] / git_repo).as_posix()
+
         try:
             self.repo_id = self.repos_api.get_repo_id(path=repo_path)
         except (HTTPError, ValueError, RuntimeError):
             self.log.warning("Failed to get repo ID")
 
         if not self.repo_id:
-            self.log.warning(f"Repo not found, cloning from URL: {git_url}")
+            self.log.warning(
+                f"Repo not found, cloning from URL: {self.settings['git_url']}",
+            )
 
-            repo = self.repos_api.create(git_url, git_provider, repo_path)
+            self.workspace_api.mkdirs(
+                workspace_path=f"/Repos/{self.settings['repos_user']}",
+            )
+
+            repo = self.repos_api.create(
+                self.settings["git_url"],
+                self.settings["git_provider"],
+                repo_path,
+            )
             self.repo_id = repo["id"]
 
         self.log.info(f"Repository ID: {self.repo_id}")
 
         return self.repo_id
 
-    @validate_arguments
-    def update(
-        self,
-        git_branch: constr(min_length=1, strict=True, regex=r"^[^'\"]*$"),
-    ) -> None:
+    def update(self) -> None:
         """Update the Databricks repository with a new branch."""
         if not self.repo_id:
             msg = "Repo not initialized. Please first run get_or_create_repo()"
-            raise ValueError(
-                msg,
-            )
+            raise ValueError(msg)
 
         # TODO: Support Git tags as well
-        self.repos_api.update(self.repo_id, branch=git_branch, tag=None)
+        self.repos_api.update(
+            repo_id=self.repo_id,
+            branch=self.settings["git_branch"],
+            tag=None,
+        )
