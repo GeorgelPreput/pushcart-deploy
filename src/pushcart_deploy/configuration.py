@@ -290,10 +290,16 @@ class Transformation:
     @classmethod
     def check_only_one_of_config_or_sql_query_defined(cls, values: dict) -> dict:
         """Check that one and only one of the config or sql_query fields is defined."""
-        if not any(values.get(v) is not None for v in ["column_order", "sql_query"]):
+        if not any(
+            values.get(v) is not None
+            for v in ["source_column_name", "dest_column_name", "sql_query"]
+        ):
             msg = f"No transformation defined. Please provide either a config or a sql_query.\nGot: {values}"
             raise ValueError(msg)
-        if all(values.get(t) for t in ["column_order", "sql_query"]):
+        if all(
+            values.get(t)
+            for t in ["source_column_name", "dest_column_name", "sql_query"]
+        ):
             msg = f"Only one of config or sql_query allowed.\nGot: {values}"
             raise ValueError(msg)
         return values
