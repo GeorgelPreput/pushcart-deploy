@@ -15,12 +15,14 @@ jobs:
         id: setup-python
         with:
           python-version: "3.10"
-      - name: dbr-cli-config
-        uses: "./.github/workflow-templates/dbr-cli-config"
       - name: build
         uses: "./.github/workflow-templates/build-library"
       - name: test
         uses: "./.github/workflow-templates/test"
+        with:
+          databricks_host: ${{ secrets.DATABRICKS_HOST }}
+          databricks_token: ${{ secrets.DATABRICKS_TOKEN }}
+          databricks_cluster_id: ${{ secrets.DATABRICKS_CLUSTER_ID }}
       - name: semver
         uses: "./.github/workflow-templates/semver"
         with:
@@ -30,5 +32,3 @@ jobs:
         with:
           pypi_token: ${{ secrets.POETRY_PYPI_TOKEN_PYPI }}
           pypi_test_token: ${{ secrets.POETRY_PYPI_TOKEN_PYPI_TEST }}
-      - name: dbr-cli-cleanup
-        uses: "./github/workflow-templates/dbr-cli-cleanup"

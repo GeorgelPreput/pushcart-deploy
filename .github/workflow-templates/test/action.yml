@@ -8,6 +8,19 @@
 name: test
 description: Run unit tests using Pytest
 
+inputs:
+  databricks_host:
+    description: Databricks host to run API calls against
+    required: true
+
+  databricks_token:
+    description: Authentication token for Databricks host
+    required: true
+
+  databricks_cluster_id:
+    description: Cluster ID to pass metadata dataframes to
+    required: true
+
 runs:
   using: "composite"
   steps:
@@ -16,6 +29,10 @@ runs:
     #----------------------------------------------
     - name: Test with pytest
       shell: bash
+      env:
+        DATABRICKS_HOST: ${{ inputs.databricks_host }}
+        DATABRICKS_TOKEN: ${{ inputs.databricks_token }}
+        DATABRICKS_CLUSTER_ID: ${{ inputs.databricks_cluster_id }}
       run: poetry run pytest --junitxml=pytest.xml --cov-report=term-missing:skip-covered --cov=src --cov-report=xml tests/ | tee pytest-coverage.txt
     #----------------------------------------------
     #             upload coverage stats
