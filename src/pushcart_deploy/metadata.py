@@ -15,6 +15,7 @@ Requires Databricks CLI to already be configured for your target Databricks envi
 import asyncio
 import json
 import logging
+from collections.abc import AsyncIterator
 from copy import deepcopy
 from dataclasses import asdict
 from glob import glob
@@ -105,51 +106,70 @@ class Metadata:
         return {"sources": sources_config}
 
     @staticmethod
-    async def _enrich_transformations_config(transformations_config: list) -> None:
+    async def _handle_csv_transformations(
+        transformation: dict,
+        config_path: Path,
+    ) -> AsyncIterator[dict]:
+        async for row in get_transformations_from_csv(config_path.resolve()):
+            row["column_order"] = (
+                int(row["column_order"]) if str(row["column_order"]).isdigit() else None
+            )
+
+            row.update(
+                origin=transformation["origin"],
+                target=transformation["target"],
+                target_catalog_name=transformation["target_catalog_name"],
+                target_schema_name=transformation["target_schema_name"],
+                pipeline_name=transformation["pipeline_name"],
+            )
+
+            if row.get("validation_rule") and row.get("validation_action"):
+                row["validations"] = [
+                    {
+                        "validation_rule": row["validation_rule"],
+                        "validation_action": row["validation_action"],
+                    },
+                ]
+                del row["validation_rule"], row["validation_action"]
+
+            yield row
+
+    @staticmethod
+    async def _handle_sql_transformations(
+        transformation: dict, config_path: Path
+    ) -> dict:
+        sql_transformation = deepcopy(transformation)
+        sql_transformation["sql_query"] = await get_transformations_from_sql(
+            config_path.resolve()
+        )
+
+        del sql_transformation["config"]
+
+        return sql_transformation
+
+    async def _enrich_transformations_config(
+        self,
+        transformations_config: list,
+    ) -> None:
+        enriched_transformations = []
+
         for t in transformations_config:
             if t.get("config"):
                 config_path = Path(t["config"])
                 if config_path.suffix == ".csv":
-                    async for row in get_transformations_from_csv(
-                        config_path.resolve(),
-                    ):
-                        row["column_order"] = (
-                            int(row["column_order"])
-                            if str(row["column_order"]).isdigit()
-                            else None
-                        )
-                        row["origin"] = t["origin"]
-                        row["target"] = t["target"]
-                        row["target_catalog_name"] = t["target_catalog_name"]
-                        row["target_schema_name"] = t["target_schema_name"]
-                        row["pipeline_name"] = t["pipeline_name"]
-
-                        if row.get("validation_rule") and row.get("validation_action"):
-                            row["validations"] = [
-                                {
-                                    "validation_rule": row["validation_rule"],
-                                    "validation_action": row["validation_action"],
-                                },
-                            ]
-                            del row["validation_rule"]
-                            del row["validation_action"]
-
-                        transformations_config.append(row)
+                    async for row in self._handle_csv_transformations(t, config_path):
+                        enriched_transformations.append(row)
                 elif config_path.suffix == ".sql":
-                    sql_transformation = deepcopy(t)
-                    sql_transformation[
-                        "sql_query"
-                    ] = await get_transformations_from_sql(
-                        config_path.resolve(),
+                    enriched_transformations.append(
+                        await self._handle_sql_transformations(t, config_path)
                     )
-                    del sql_transformation["config"]
-                    transformations_config.append(sql_transformation)
                 else:
                     msg = "Transformation configurations can only be .csv or .sql files"
                     raise TypeError(msg)
 
         return {
-            "transformations": [t for t in transformations_config if "config" not in t],
+            "transformations": [t for t in transformations_config if "config" not in t]
+            + enriched_transformations,
         }
 
     @staticmethod

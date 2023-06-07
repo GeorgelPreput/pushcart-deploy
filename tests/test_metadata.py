@@ -30,10 +30,15 @@ class TestMetadata:
 
         metadata = Metadata("./tests/data")
         pipeline_configs = await metadata._collect_pipeline_configs()
-        await metadata._enrich_pipeline_configs(pipeline_configs)
+        enriched_pipeline_configs = await metadata._enrich_pipeline_configs(
+            pipeline_configs
+        )
 
         assert any(
-            ["column_order" in t for t in pipeline_configs[0]["transformations"]]
+            [
+                "column_order" in t
+                for t in enriched_pipeline_configs[0]["transformations"]
+            ]
         )
 
     def test_validated_pipeline_configs_created_successfully(self):
