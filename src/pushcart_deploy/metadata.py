@@ -136,11 +136,12 @@ class Metadata:
 
     @staticmethod
     async def _handle_sql_transformations(
-        transformation: dict, config_path: Path
+        transformation: dict,
+        config_path: Path,
     ) -> dict:
         sql_transformation = deepcopy(transformation)
         sql_transformation["sql_query"] = await get_transformations_from_sql(
-            config_path.resolve()
+            config_path.resolve(),
         )
 
         del sql_transformation["config"]
@@ -161,7 +162,7 @@ class Metadata:
                         enriched_transformations.append(row)
                 elif config_path.suffix == ".sql":
                     enriched_transformations.append(
-                        await self._handle_sql_transformations(t, config_path)
+                        await self._handle_sql_transformations(t, config_path),
                     )
                 else:
                     msg = "Transformation configurations can only be .csv or .sql files"
