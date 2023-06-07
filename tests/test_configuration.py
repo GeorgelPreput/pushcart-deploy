@@ -356,9 +356,9 @@ class TestTransformation:
                 sql_query="SELECT * FROM table",
             )
 
-    def test_transformation_with_both_config_and_sql_query_defined(self):
-        """Tests that a transformation with both config and sql query fields defined is
-        correctly validated.
+    def test_transformation_with_both_column_metadata_and_sql_query_defined(self):
+        """Tests that a transformation with both per-column metadata-driven transforms
+        and sql query fields defined is correctly validated.
         """
         with pytest.raises(ValueError):
             Transformation(
@@ -367,7 +367,8 @@ class TestTransformation:
                 pipeline_name="sample_pipeline",
                 origin="my_input_view",
                 target="my_output_view",
-                column_order=1,
+                source_column_name="input_column",
+                dest_column_name="output_column",
                 sql_query="SELECT * FROM table",
             )
 
@@ -398,7 +399,8 @@ class TestTransformation:
                 pipeline_name="sample_pipeline",
                 origin="my_input_view",
                 target="my_output_view",
-                column_order=1,
+                source_column_name="input_column",
+                dest_column_name="output_column",
                 validations=[validation1, validation2],
             )
         assert "Different actions for the same validation" in str(e.value)

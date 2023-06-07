@@ -70,6 +70,23 @@ async def get_transformations_from_csv(csv_path: Path | str) -> AsyncIterator[di
             yield row
 
 
+async def get_transformations_from_sql(sql_path: Path | str) -> str:
+    """Return transformations from SQL file.
+
+    Parameters
+    ----------
+    sql_path : Path | str
+        Path to an existing .sql file
+
+    Returns
+    -------
+    str
+        SQL string from input file
+    """
+    async with aiofiles.open(sql_path, "r") as sql_file:
+        return await sql_file.read()
+
+
 def expect_at_most_one_file(settings_path: Path | str) -> Path | None:
     """Check whether there is at most one configuration file for the given path.
 
@@ -270,7 +287,7 @@ class Transformation:
 
     origin: constr(min_length=1, strict=True)
     target: constr(min_length=1, strict=True)
-    column_order: conint(ge=1) | None = None
+    column_order: conint(ge=1) | None = 1
     source_column_name: constr(strict=True) | None = None
     source_column_type: constr(
         strict=True,
@@ -290,10 +307,16 @@ class Transformation:
     @classmethod
     def check_only_one_of_config_or_sql_query_defined(cls, values: dict) -> dict:
         """Check that one and only one of the config or sql_query fields is defined."""
-        if not any(values.get(v) is not None for v in ["column_order", "sql_query"]):
+        if not any(
+            values.get(v) is not None
+            for v in ["source_column_name", "dest_column_name", "sql_query"]
+        ):
             msg = f"No transformation defined. Please provide either a config or a sql_query.\nGot: {values}"
             raise ValueError(msg)
-        if all(values.get(t) for t in ["column_order", "sql_query"]):
+        if all(
+            values.get(t)
+            for t in ["source_column_name", "dest_column_name", "sql_query"]
+        ):
             msg = f"Only one of config or sql_query allowed.\nGot: {values}"
             raise ValueError(msg)
         return values
