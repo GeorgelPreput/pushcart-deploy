@@ -287,7 +287,7 @@ class Transformation:
 
     origin: constr(min_length=1, strict=True)
     target: constr(min_length=1, strict=True)
-    column_order: conint(ge=1) | None = None
+    column_order: conint(ge=1) | None = 1
     source_column_name: constr(strict=True) | None = None
     source_column_type: constr(
         strict=True,

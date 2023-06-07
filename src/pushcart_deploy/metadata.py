@@ -15,11 +15,9 @@ Requires Databricks CLI to already be configured for your target Databricks envi
 import asyncio
 import json
 import logging
-from collections import defaultdict
+from copy import deepcopy
 from dataclasses import asdict
 from glob import glob
-from itertools import groupby
-from operator import itemgetter
 from pathlib import Path
 
 from databricks.connect import DatabricksSession
@@ -29,6 +27,7 @@ from pushcart_deploy.configuration import (
     Configuration,
     get_config_from_file,
     get_transformations_from_csv,
+    get_transformations_from_sql,
 )
 from pushcart_deploy.validation import sanitize_empty_objects
 
@@ -60,9 +59,16 @@ class Metadata:
             return None
 
         file_path_obj = Path(file_path)
-        config["pipeline_name"] = file_path_obj.parent.name
-        config["target_schema_name"] = file_path_obj.parent.parent.name
-        config["target_catalog_name"] = file_path_obj.parent.parent.parent.name
+        metadata = {
+            "pipeline_name": file_path_obj.parent.name,
+            "target_schema_name": file_path_obj.parent.parent.name,
+            "target_catalog_name": file_path_obj.parent.parent.parent.name,
+        }
+
+        for key in ["sources", "transformations", "destinations"]:
+            if key in config:
+                for item in config[key]:
+                    item.update(metadata)
 
         if config.get("transformations"):
             for transformation in config["transformations"]:
@@ -96,35 +102,59 @@ class Metadata:
             if isinstance(source_dict.get("params"), dict):
                 source_dict["params"] = json.dumps(source_dict.get("params", {}))
 
+        return {"sources": sources_config}
+
     @staticmethod
     async def _enrich_transformations_config(transformations_config: list) -> None:
-        for transformation_config in transformations_config:
-            if csv_path := transformation_config.get("config"):
-                async for row in get_transformations_from_csv(Path(csv_path).resolve()):
-                    row["column_order"] = (
-                        int(row["column_order"])
-                        if str(row["column_order"]).isdigit()
-                        else None
+        for t in transformations_config:
+            if t.get("config"):
+                config_path = Path(t["config"])
+                if config_path.suffix == ".csv":
+                    async for row in get_transformations_from_csv(
+                        config_path.resolve(),
+                    ):
+                        row["column_order"] = (
+                            int(row["column_order"])
+                            if str(row["column_order"]).isdigit()
+                            else None
+                        )
+                        row["origin"] = t["origin"]
+                        row["target"] = t["target"]
+                        row["target_catalog_name"] = t["target_catalog_name"]
+                        row["target_schema_name"] = t["target_schema_name"]
+                        row["pipeline_name"] = t["pipeline_name"]
+
+                        if row.get("validation_rule") and row.get("validation_action"):
+                            row["validations"] = [
+                                {
+                                    "validation_rule": row["validation_rule"],
+                                    "validation_action": row["validation_action"],
+                                },
+                            ]
+                            del row["validation_rule"]
+                            del row["validation_action"]
+
+                        transformations_config.append(row)
+                elif config_path.suffix == ".sql":
+                    sql_transformation = deepcopy(t)
+                    sql_transformation[
+                        "sql_query"
+                    ] = await get_transformations_from_sql(
+                        config_path.resolve(),
                     )
-                    row["origin"] = transformation_config["origin"]
-                    row["target"] = transformation_config["target"]
+                    del sql_transformation["config"]
+                    transformations_config.append(sql_transformation)
+                else:
+                    msg = "Transformation configurations can only be .csv or .sql files"
+                    raise TypeError(msg)
 
-                    if row.get("validation_rule") and row.get("validation_action"):
-                        row["validations"] = [
-                            {
-                                "validation_rule": row["validation_rule"],
-                                "validation_action": row["validation_action"],
-                            },
-                        ]
-                        del row["validation_rule"]
-                        del row["validation_action"]
-
-                    transformations_config.append(row)
-                transformations_config.remove(transformation_config)
+        return {
+            "transformations": [t for t in transformations_config if "config" not in t],
+        }
 
     @staticmethod
     async def _enrich_destinations_config(destinations_config: list) -> None:
-        pass
+        return {"destinations": destinations_config}
 
     async def _enrich_pipeline_configs(self, pipeline_configs: list) -> None:
         enrichment_func = {
@@ -133,7 +163,7 @@ class Metadata:
             "destinations": self._enrich_destinations_config,
         }
 
-        await asyncio.gather(
+        return await asyncio.gather(
             *[
                 enrichment_func[stage_name](stage_config)
                 for pipeline_config in pipeline_configs
@@ -142,48 +172,10 @@ class Metadata:
             ],
         )
 
-    @staticmethod
-    def _group_pipeline_configs(pipeline_configs: list) -> list:
-        sorted_pipeline_configs = sorted(
-            pipeline_configs,
-            key=itemgetter(
-                "target_catalog_name",
-                "target_schema_name",
-                "pipeline_name",
-            ),
-        )
-        grouped_elements = groupby(
-            sorted_pipeline_configs,
-            key=itemgetter(
-                "target_catalog_name",
-                "target_schema_name",
-                "pipeline_name",
-            ),
-        )
-
-        grouped_pipeline_configs = []
-
-        for (catalog, schema, pipeline), group in grouped_elements:
-            merged_pipeline_stages_dict = defaultdict(list)
-            for d in group:
-                for k, v in d.items():
-                    if isinstance(v, list):
-                        for item in v:
-                            item["target_catalog_name"] = catalog
-                            item["target_schema_name"] = schema
-                            item["pipeline_name"] = pipeline
-                        merged_pipeline_stages_dict[k].extend(v)
-
-            grouped_pipeline_configs.append(dict(merged_pipeline_stages_dict))
-
-        return grouped_pipeline_configs
-
     def _validate_pipeline_configs(self, pipeline_configs: list) -> None:
-        grouped_pipeline_configs = self._group_pipeline_configs(pipeline_configs)
-
         validated_pipeline_configs = []
 
-        for pipeline_config in grouped_pipeline_configs:
+        for pipeline_config in pipeline_configs:
             validated_pipeline_configs.append(Configuration(**pipeline_config))
 
         return validated_pipeline_configs
@@ -215,8 +207,12 @@ class Metadata:
     def create_backend_objects(self) -> None:
         """Create metadata tables holding pipeline stages."""
         pipeline_configs = asyncio.run(self._collect_pipeline_configs())
-        asyncio.run(self._enrich_pipeline_configs(pipeline_configs))
-        validated_pipeline_configs = self._validate_pipeline_configs(pipeline_configs)
+        enriched_pipeline_configs = asyncio.run(
+            self._enrich_pipeline_configs(pipeline_configs),
+        )
+        validated_pipeline_configs = self._validate_pipeline_configs(
+            enriched_pipeline_configs,
+        )
         self._create_metadata_tables(validated_pipeline_configs)
 
     @staticmethod
