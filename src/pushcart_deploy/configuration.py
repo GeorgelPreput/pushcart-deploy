@@ -70,6 +70,23 @@ async def get_transformations_from_csv(csv_path: Path | str) -> AsyncIterator[di
             yield row
 
 
+async def get_transformations_from_sql(sql_path: Path | str) -> str:
+    """Return transformations from SQL file.
+
+    Parameters
+    ----------
+    sql_path : Path | str
+        Path to an existing .sql file
+
+    Returns
+    -------
+    str
+        SQL string from input file
+    """
+    async with aiofiles.open(sql_path, "r") as sql_file:
+        return await sql_file.read()
+
+
 def expect_at_most_one_file(settings_path: Path | str) -> Path | None:
     """Check whether there is at most one configuration file for the given path.
 
