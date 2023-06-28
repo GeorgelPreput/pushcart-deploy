@@ -247,25 +247,19 @@ class Metadata:
         """
         spark = DatabricksSession.builder.getOrCreate()
 
-        sources_df = spark.table("pushcart.sources").select(
-            "target_catalog_name",
-            "target_schema_name",
-            "pipeline_name",
-        )
-        transformations_df = spark.table("pushcart.transformations").select(
-            "target_catalog_name",
-            "target_schema_name",
-            "pipeline_name",
-        )
-        destinations_df = spark.table("pushcart.destinations").select(
-            "target_catalog_name",
-            "target_schema_name",
-            "pipeline_name",
+        pipelines_df = spark.createDataFrame(
+            [],
+            schema="struct<target_catalog_name:string,target_schema_name:string,pipeline_name:string>",
         )
 
-        pipelines_df = (
-            sources_df.union(transformations_df).union(destinations_df).distinct()
-        )
+        for stage in ["sources", "transformations", "destinations"]:
+            pipelines_df = pipelines_df.union(
+                spark.table(f"pushcart.{stage}").select(
+                    "target_catalog_name",
+                    "target_schema_name",
+                    "pipeline_name",
+                ),
+            )
 
         return [
             {
@@ -274,5 +268,5 @@ class Metadata:
                 "pipeline_name": row["pipeline_name"],
                 "pipeline_id": None,
             }
-            for row in pipelines_df.collect()
+            for row in pipelines_df.distinct().collect()
         ]
