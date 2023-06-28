@@ -16,7 +16,6 @@ data pipeline defined.
 
 """
 
-import csv
 import json
 import logging
 import os
@@ -27,6 +26,7 @@ from itertools import groupby
 from pathlib import Path
 
 import aiofiles
+import pandas as pd
 import tomli
 import yaml
 from pydantic import (
@@ -61,12 +61,26 @@ async def get_transformations_from_csv(csv_path: Path | str) -> AsyncIterator[di
     if isinstance(csv_path, str):
         csv_path = Path(csv_path)
 
+    types_dict = {
+        "column_order": int,
+        "source_column_name": str,
+        "source_column_type": str,
+        "dest_column_name": str,
+        "dest_column_type": str,
+        "transform_function": str,
+        "default_value": str,
+        "validation_rule": str,
+        "validation_action": str,
+    }
+
     async with aiofiles.open(csv_path, "r") as aio_file:
         contents = await aio_file.read()
         csv_file = StringIO(contents)
-        reader = csv.DictReader(csv_file)
 
-        for row in reader:
+        csv_df = pd.read_csv(csv_file, dtype=types_dict).fillna("")
+        csv_dict = csv_df.to_dict(orient="records")
+
+        for row in csv_dict:
             yield row
 
 
