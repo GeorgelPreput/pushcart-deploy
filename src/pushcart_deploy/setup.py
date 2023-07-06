@@ -43,7 +43,7 @@ class Setup:
     non_destructive: bool
 
     @provide_api_client
-    def __post_init_post_parse__(self, api_client: ApiClient) -> None:
+    def __post_init__(self, api_client: ApiClient) -> None:
         """Initialize logger.
 
         Parameters

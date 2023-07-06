@@ -49,7 +49,7 @@ class Metadata:
 
     config_dir: DirectoryPath
 
-    def __post_init_post_parse__(self) -> None:
+    def __post_init__(self) -> None:
         """Initialize logger."""
         self.log = logging.getLogger(__name__)
 
@@ -265,7 +265,7 @@ class Metadata:
             {
                 "target_catalog_name": row["target_catalog_name"],
                 "target_schema_name": row["target_schema_name"],
-                "pipeline_name": row["pipeline_name"],
+                "name": row["pipeline_name"],
                 "pipeline_id": None,
             }
             for row in pipelines_df.distinct().collect()

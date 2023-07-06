@@ -7,7 +7,7 @@ import asyncio
 import logging
 from pathlib import Path
 
-from pydantic import DirectoryPath, constr, dataclasses, validate_arguments
+from pydantic import DirectoryPath, constr, dataclasses, validate_call
 
 from pushcart_deploy.configuration import expect_at_most_one_file, get_config_from_file
 from pushcart_deploy.validation import PydanticArbitraryTypesConfig
@@ -22,10 +22,11 @@ class BaseSettings:
 
     config_dir: DirectoryPath
 
-    def __post_init_post_parse__(self) -> None:
+    def __post_init__(self) -> None:
         """Initialize logger."""
         self.log = logging.getLogger(__name__)
 
+    @validate_call
     def get_settings_path_for_pipeline(
         self,
         target_catalog_name: constr(
@@ -51,7 +52,7 @@ class BaseSettings:
             to_lower=True,
             strict=True,
             min_length=1,
-            regex=r"^(_job_settings|_pipeline_settings)$",
+            pattern=r"^(_job_settings|_pipeline_settings)$",
         ),
     ) -> Path:
         """Look for a settings file in the pipeline directory.
@@ -83,7 +84,7 @@ class BaseSettings:
 
         return expect_at_most_one_file(base_path)
 
-    @validate_arguments
+    @validate_call
     def load_settings(
         self,
         target_catalog_name: constr(
@@ -109,7 +110,7 @@ class BaseSettings:
             to_lower=True,
             strict=True,
             min_length=1,
-            regex=r"^(_job_settings|_pipeline_settings)$",
+            pattern=r"^(_job_settings|_pipeline_settings)$",
         ),
     ) -> dict:
         """Load pipeline/job settings from file, if one exists.

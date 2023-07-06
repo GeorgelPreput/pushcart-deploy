@@ -20,7 +20,7 @@ import logging
 
 from databricks_cli.sdk.api_client import ApiClient
 from databricks_cli.secrets.api import SecretApi
-from pydantic import Field, constr, dataclasses, validate_arguments
+from pydantic import Field, constr, dataclasses, validate_call
 
 from pushcart_deploy.validation import PydanticArbitraryTypesConfig
 
@@ -35,13 +35,13 @@ class SecretsWrapper:
 
     client: ApiClient
 
-    def __post_init_post_parse__(self) -> None:
+    def __post_init__(self) -> None:
         """Initialize logger."""
         self.log = logging.getLogger(__name__)
 
         self.secrets_api = SecretApi(self.client)
 
-    @validate_arguments
+    @validate_call
     def create_scope_if_not_exists(
         self,
         secret_scope_name: constr(
@@ -49,7 +49,7 @@ class SecretsWrapper:
             to_lower=True,
             strict=True,
             min_length=1,
-            regex=r"^[A-Za-z0-9\-_.]{1,128}$",
+            pattern=r"^[A-Za-z0-9\-_.]{1,128}$",
         ) = "pushcart",  # noqa: S107
     ) -> None:
         """Create a secret scope if it does not exist in the workspace."""
@@ -63,7 +63,7 @@ class SecretsWrapper:
             )
             self.log.info(f"Created secret scope {secret_scope_name}")
 
-    @validate_arguments
+    @validate_call
     def push_secrets(
         self,
         secret_scope_name: constr(
@@ -71,7 +71,7 @@ class SecretsWrapper:
             to_lower=True,
             strict=True,
             min_length=1,
-            regex=r"^[A-Za-z0-9\-_.]{1,128}$",
+            pattern=r"^[A-Za-z0-9\-_.]{1,128}$",
         ) = "pushcart",  # noqa: S107
         secrets_dict: dict[
             constr(
@@ -79,7 +79,7 @@ class SecretsWrapper:
                 to_lower=True,
                 strict=True,
                 min_length=1,
-                regex=r"^[A-Za-z0-9\-_.]{1,128}$",
+                pattern=r"^[A-Za-z0-9\-_.]{1,128}$",
             ),
             str,
         ] = Field(  # noqa: B008

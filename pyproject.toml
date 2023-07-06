@@ -78,7 +78,7 @@ exclude = [".venv", "tests"]
 
 [tool.poetry]
 name = "pushcart-deploy"
-version = "1.6.1"
+version = "1.6.5"
 description = "Deployment helper for pipeline configurations using Pushcart"
 authors = ["Georgel Preput <georgelpreput@mailbox.org>"]
 license = "GPL-3.0-or-later"
@@ -98,7 +98,7 @@ click = "^8.1.3"
 databricks-cli = "^0.17.4"
 databricks-connect = "^13.0.0"
 methodtools = "^0.4.7"
-pydantic = "^1.10.7"
+pydantic = "^2.0.0"
 python = "^3.10"
 python-dotenv = "^1.0.0"
 pyyaml = "^6.0"
@@ -107,6 +107,7 @@ urllib3 = "^1"
 
 [tool.poetry.group.dev.dependencies]
 black = { version = "*", allow-prereleases = true }
+bumpver = "^2023.1124"
 coverage = "^7.2.7"
 hypothesis = "^6.70.1"
 ipykernel = "^6.22.0"
@@ -122,3 +123,14 @@ pushcart-deploy = "pushcart_deploy.setup:deploy"
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
+
+[tool.bumpver]
+current_version = "1.6.1"
+version_pattern = "MAJOR.MINOR.PATCH"
+commit_message = "bump version {old_version} -> {new_version}"
+commit = true
+tag = true
+push = true
+
+[tool.bumpver.file_patterns]
+"pyproject.toml" = ['^version = "{version}"$']

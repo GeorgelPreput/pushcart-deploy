@@ -24,7 +24,7 @@ import logging
 from databricks_cli.jobs.api import JobsApi
 from databricks_cli.runs.api import RunsApi
 from databricks_cli.sdk.api_client import ApiClient
-from pydantic import dataclasses, validate_arguments
+from pydantic import dataclasses, validate_call
 
 from pushcart_deploy.validation import PydanticArbitraryTypesConfig
 
@@ -41,7 +41,7 @@ class JobsWrapper:
 
     api_client: ApiClient
 
-    def __post_init_post_parse__(self) -> None:
+    def __post_init__(self) -> None:
         """Initialize the logger instance and creates instances of JobsApi and RunsApi."""
         self.log = logging.getLogger(__name__)
 
@@ -89,7 +89,7 @@ class JobsWrapper:
 
         return job_id
 
-    @validate_arguments
+    @validate_call
     def delete_job(self, job_id: str) -> None:
         """Delete a job by ID.
 

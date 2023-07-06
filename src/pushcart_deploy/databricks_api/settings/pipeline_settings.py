@@ -9,7 +9,7 @@ import operator
 from databricks_cli.clusters.api import ClusterApi
 from databricks_cli.sdk.api_client import ApiClient
 from methodtools import lru_cache
-from pydantic import DirectoryPath, dataclasses, validate_arguments
+from pydantic import DirectoryPath, dataclasses, validate_call
 
 from pushcart_deploy.databricks_api.settings import BaseSettings
 from pushcart_deploy.validation import PydanticArbitraryTypesConfig
@@ -26,7 +26,7 @@ class PipelineSettings:
     api_client: ApiClient
     config_dir: DirectoryPath
 
-    def __post_init_post_parse__(self) -> None:
+    def __post_init__(self) -> None:
         """Initialize logger and dependent API classes."""
         self.log = logging.getLogger(__name__)
         self.cluster_api = ClusterApi(self.api_client)
@@ -107,7 +107,7 @@ class PipelineSettings:
         if pipeline_id:
             pipeline_settings["id"] = pipeline_id
 
-    @validate_arguments
+    @validate_call
     def load_pipeline_settings(  # noqa: PLR0913
         self,
         target_catalog_name: str,

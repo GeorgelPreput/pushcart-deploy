@@ -34,10 +34,11 @@ from pydantic import (
     conint,
     constr,
     dataclasses,
-    root_validator,
-    validate_arguments,
-    validator,
+    field_validator,
+    model_validator,
+    validate_call,
 )
+from pydantic_core._pydantic_core import ArgsKwargs
 
 
 async def get_transformations_from_csv(csv_path: Path | str) -> AsyncIterator[dict]:
@@ -141,7 +142,7 @@ def expect_at_most_one_file(settings_path: Path | str) -> Path | None:
     return existing_paths[0]
 
 
-@validate_arguments
+@validate_call
 async def get_config_from_file(settings_path: Path | str) -> dict | None:
     """Load a configuration file into a dictionary. Supported formats are JSON, YAML, and TOML.
 
@@ -213,7 +214,11 @@ class Validation:
     """
 
     validation_rule: constr(min_length=1, strict=True)
-    validation_action: constr(to_upper=True, strict=True, regex=r"\A(LOG|DROP|FAIL)\Z")
+    validation_action: constr(
+        to_upper=True,
+        strict=True,
+        pattern=r"^(LOG|DROP|FAIL)$",
+    )
 
     def __getitem__(self, item: str) -> any:
         """Avoid Pydantic throwing ValidationError: object not subscriptable.
@@ -261,7 +266,7 @@ class Source:
     params: str | None = None
     validations: list[Validation] | None = Field(default_factory=list)
 
-    @validator("validations")
+    @field_validator("validations")
     @classmethod
     def check_multiple_validations_with_same_rule(cls, value: dict) -> dict:
         """Check that there are no multiple validation actions for the same rule."""
@@ -305,37 +310,37 @@ class Transformation:
     source_column_name: constr(strict=True) | None = None
     source_column_type: constr(
         strict=True,
-        regex="\\A(string|int|double|date|timestamp|boolean|struct|array|map)\\Z",
+        pattern="^(string|int|double|date|timestamp|boolean|struct|array|map)$",
     ) | None = None
     dest_column_name: constr(strict=True) | None = None
     dest_column_type: constr(
         strict=True,
-        regex="\\A(string|int|double|date|timestamp|boolean|struct|array|map)\\Z",
+        pattern="^(string|int|double|date|timestamp|boolean|struct|array|map)$",
     ) | None = None
     transform_function: constr(strict=True) | None = None
     sql_query: constr(min_length=1, strict=True) | None = None
     default_value: constr(strict=True) | None = None
     validations: list[Validation] | None = Field(default_factory=list)
 
-    @root_validator(pre=True)
+    @model_validator(mode="before")
     @classmethod
     def check_only_one_of_config_or_sql_query_defined(cls, values: dict) -> dict:
         """Check that one and only one of the config or sql_query fields is defined."""
+        data = values.kwargs if isinstance(values, ArgsKwargs) else values
         if not any(
-            values.get(v) is not None
+            data.get(v) is not None
             for v in ["source_column_name", "dest_column_name", "sql_query"]
         ):
-            msg = f"No transformation defined. Please provide either a config or a sql_query.\nGot: {values}"
+            msg = f"No transformation defined. Please provide either a config or a sql_query.\nGot: {data}"
             raise ValueError(msg)
         if all(
-            values.get(t)
-            for t in ["source_column_name", "dest_column_name", "sql_query"]
+            data.get(t) for t in ["source_column_name", "dest_column_name", "sql_query"]
         ):
-            msg = f"Only one of config or sql_query allowed.\nGot: {values}"
+            msg = f"Only one of config or sql_query allowed.\nGot: {data}"
             raise ValueError(msg)
         return values
 
-    @validator("validations")
+    @field_validator("validations")
     @classmethod
     def check_multiple_validations_with_same_rule(cls, value: dict) -> dict:
         """Validate that there are no multiple validations with the same rule."""
@@ -376,7 +381,7 @@ class Destination:
 
     origin: constr(min_length=1, strict=True)
     target: constr(min_length=1, strict=True)
-    mode: constr(min_length=1, strict=True, regex=r"^(append|upsert)$")
+    mode: constr(min_length=1, strict=True, pattern=r"^(append|upsert)$")
     path: Path | None = None
     keys: list[constr(min_length=1, strict=True)] | None = Field(
         default_factory=list,
@@ -384,12 +389,14 @@ class Destination:
     sequence_by: constr(min_length=1, strict=True) | None = None
     validations: list[Validation] | None = Field(default_factory=list)
 
-    @root_validator(pre=True)
+    @model_validator(mode="before")
     @classmethod
     def check_keys_and_sequence_for_upsert(cls, values: dict) -> dict:
         """Check that the keys and sequence_by fields are defined for upsert mode."""
-        if values.get("mode") == "upsert" and not all(
-            values[v] for v in ["keys", "sequence_by"]
+        data = values.kwargs if isinstance(values, ArgsKwargs) else values
+
+        if data.get("mode") == "upsert" and not all(
+            data[v] for v in ["keys", "sequence_by"]
         ):
             msg = "Mode upsert requires that keys and sequence_by are defined"
             raise ValueError(
@@ -397,7 +404,7 @@ class Destination:
             )
         return values
 
-    @validator("validations")
+    @field_validator("validations")
     @classmethod
     def check_multiple_validations_with_same_rule(cls, value: dict) -> dict:
         """Check that there are no multiple validations with the same rule."""
@@ -406,7 +413,7 @@ class Destination:
             raise ValueError(msg)
         return value
 
-    @validator("path", pre=False, always=True)
+    @field_validator("path", mode="after")
     @classmethod
     def convert_to_absolute_string(cls, value: Path | None) -> str | None:
         """Convert the Path object to its absolute POSIX representation."""
@@ -440,29 +447,41 @@ class Configuration:
     transformations: list[Transformation] | None = Field(default_factory=list)
     destinations: list[Destination] | None = Field(default_factory=list)
 
-    @root_validator(pre=True)
+    @model_validator(mode="before")
     @classmethod
-    def check_at_least_one_stage_defined(cls, values: dict) -> dict:
+    def check_at_least_one_stage_defined(cls, values: dict[str, list[any]]) -> dict:
         """Check that at least one of the sources, transformations, or destinations fields is defined in the configuration file."""
-        if not any(v in ["sources", "transformations", "destinations"] for v in values):
-            msg = "No stage definition found. Please define at least one of: sources, transformations, destinations"
+        msg = "No stage definition found. Please define at least one of: sources, transformations, destinations"
+
+        data = values.kwargs if isinstance(values, ArgsKwargs) else values
+
+        if not data:
             raise ValueError(msg)
+
+        if not any(v in ["sources", "transformations", "destinations"] for v in data):
+            raise ValueError(msg)
+
         return values
 
-    @root_validator(pre=True)
+    @model_validator(mode="before")
     @classmethod
-    def check_all_dlt_target_objects_are_unique(cls, values: dict) -> dict:
+    def check_all_dlt_target_objects_are_unique(
+        cls,
+        values: dict[str, list[any]],
+    ) -> dict:
         """Check that no values of the "target" fields of "sources", "transformations" and "destinations", taken together, overlap."""
-        sources = values.get("sources", [])
-        transformations = values.get("transformations", [])
-        destinations = values.get("destinations", [])
+        data = values.kwargs if isinstance(values, ArgsKwargs) else values
+
+        sources = (data or {}).get("sources", [])
+        transformations = (data or {}).get("transformations", [])
+        destinations = (data or {}).get("destinations", [])
 
         target_values = (
             [source.get("target") for source in sources if source]
             + [
                 transformation.get("target")
                 for transformation in transformations
-                if transformation.get("sql_query")
+                if transformation and transformation.get("sql_query")
             ]
             + [destination.get("target") for destination in destinations if destination]
         )

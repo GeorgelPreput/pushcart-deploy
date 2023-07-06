@@ -17,7 +17,7 @@ environment.
 
 import logging
 
-from pydantic import DirectoryPath, dataclasses, validate_arguments
+from pydantic import DirectoryPath, dataclasses, validate_call
 
 from pushcart_deploy.databricks_api.settings import BaseSettings
 from pushcart_deploy.validation import PydanticArbitraryTypesConfig
@@ -33,7 +33,7 @@ class JobSettings:
 
     config_dir: DirectoryPath
 
-    def __post_init_post_parse__(self) -> None:
+    def __post_init__(self) -> None:
         """Initialize logger and BaseSettings."""
         self.log = logging.getLogger(__name__)
         self.base_settings = BaseSettings(self.config_dir)
@@ -59,7 +59,7 @@ class JobSettings:
         job_settings["tasks"][0]["task_key"] = pipeline_name
         job_settings["tasks"][0]["pipeline_task"]["pipeline_id"] = pipeline_id
 
-    @validate_arguments
+    @validate_call
     def load_job_settings(
         self,
         target_catalog_name: str,

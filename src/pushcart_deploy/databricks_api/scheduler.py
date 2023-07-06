@@ -4,7 +4,7 @@ import logging
 
 from databricks_cli.repos.api import ReposApi
 from databricks_cli.sdk.api_client import ApiClient
-from pydantic import DirectoryPath, dataclasses, validate_arguments
+from pydantic import DirectoryPath, dataclasses, validate_call
 
 from pushcart_deploy.databricks_api import JobsWrapper, PipelinesWrapper
 from pushcart_deploy.databricks_api.settings import JobSettings, PipelineSettings
@@ -22,14 +22,14 @@ class Scheduler:
     api_client: ApiClient
     config_dir: DirectoryPath
 
-    def __post_init_post_parse__(self) -> None:
+    def __post_init__(self) -> None:
         """Initialize the logger and create instances of needed classes."""
         self.log = logging.getLogger(__name__)
         self.jobs_wrapper = JobsWrapper(self.api_client)
         self.pipelines_wrapper = PipelinesWrapper(self.api_client, self.config_dir)
         self.repos_api = ReposApi(self.api_client)
 
-    @validate_arguments
+    @validate_call
     def get_obsolete_pipelines_list(
         self,
         metadata_pipelines: list,
@@ -56,21 +56,19 @@ class Scheduler:
         list
             List of dictionaries representing obsolete pipelines.
             [{
-                "pipeline_name": pipeline_name,
+                "name": pipeline_name,
                 "pipeline_id": pipeline_id
             }, ...]
         """
-        metadata_pipelines_set = {
-            pipeline["pipeline_name"] for pipeline in metadata_pipelines
-        }
+        metadata_pipelines_set = {pipeline["name"] for pipeline in metadata_pipelines}
 
         return [
             pipeline
             for pipeline in workflows_pipelines
-            if pipeline["pipeline_name"] not in metadata_pipelines_set
+            if pipeline["name"] not in metadata_pipelines_set
         ]
 
-    @validate_arguments
+    @validate_call
     def get_new_pipelines_list(
         self,
         metadata_pipelines: list,
@@ -98,21 +96,19 @@ class Scheduler:
             List of dictionaries representing the new pipelines.
             [{
                 "target_schema_name": target_schema_name,
-                "pipeline_name": pipeline_name,
+                "name": pipeline_name,
                 "pipeline_id": None,
             }, ...]
         """
-        workflows_pipelines_set = {
-            pipeline["pipeline_name"] for pipeline in workflows_pipelines
-        }
+        workflows_pipelines_set = {pipeline["name"] for pipeline in workflows_pipelines}
 
         return [
             pipeline
             for pipeline in metadata_pipelines
-            if pipeline["pipeline_name"] not in workflows_pipelines_set
+            if pipeline["name"] not in workflows_pipelines_set
         ]
 
-    @validate_arguments
+    @validate_call
     def get_matching_pipelines_list(
         self,
         metadata_pipelines: list,
@@ -141,30 +137,28 @@ class Scheduler:
             [{
                 "target_catalog_name": target_catalog_name,
                 "target_schema_name": target_schema_name,
-                "pipeline_name": pipeline_name,
+                "name": pipeline_name,
                 "pipeline_id": pipeline_id,
             }, ...]
         """
-        scheduled_dict = {
-            d["pipeline_name"]: d["pipeline_id"] for d in workflows_pipelines
-        }
+        scheduled_dict = {d["name"]: d["pipeline_id"] for d in workflows_pipelines}
 
         matching_pipelines = []
 
         for pipeline in metadata_pipelines:
-            pipeline_name = pipeline["pipeline_name"]
+            pipeline_name = pipeline["name"]
             if pipeline_name in scheduled_dict:
                 matching_pipeline = {
                     "target_catalog_name": pipeline["target_catalog_name"],
                     "target_schema_name": pipeline["target_schema_name"],
-                    "pipeline_name": pipeline_name,
+                    "name": pipeline_name,
                     "pipeline_id": scheduled_dict[pipeline_name],
                 }
                 matching_pipelines.append(matching_pipeline)
 
         return matching_pipelines
 
-    @validate_arguments
+    @validate_call
     def delete_obsolete_pipelines(self, obsolete_pipelines: list) -> None:
         """Remove all obsolete DLT pipelines from Workflows.
 
@@ -177,24 +171,24 @@ class Scheduler:
         for p in obsolete_pipelines:
             self.pipelines_wrapper.delete_pipeline(pipeline_id=p["pipeline_id"])
 
-    @validate_arguments
+    @validate_call
     def create_or_update_pipelines(
         self,
-        repo_id: str,
+        repo_id: str | int,
         metadata_pipelines: list,
     ) -> list:
         """Update or create new DLT pipelines from a list of pipelines available in the metadata.
 
         Parameters
         ----------
-        repo_id : str
+        repo_id : str | int
             ID of Databricks Repos used to point to the appropriate Pipeline notebook
         metadata_pipelines : list
             List of pipelines available in metadata, in the form of
             [{
                 "target_catalog_name": target_catalog_name,
                 "target_schema_name": target_schema_name,
-                "pipeline_name": pipeline_name,
+                "name": pipeline_name,
                 "pipeline_id": pipeline_id | None,
             }, ...]
 
@@ -205,12 +199,12 @@ class Scheduler:
             [{
                 "target_catalog_name": target_catalog_name,
                 "target_schema_name": target_schema_name,
-                "pipeline_name": pipeline_name,
+                "name": pipeline_name,
                 "pipeline_id": pipeline_id,
             }, ...]
         """
         pipelines = []
-        repo_path = self.repos_api.get(repo_id)["path"]
+        repo_path = self.repos_api.get(str(repo_id))["path"]
 
         self.log.info("Creating new DLT pipelines")
         for pipeline in metadata_pipelines:
@@ -220,12 +214,12 @@ class Scheduler:
                 },
             ]
             configuration = {
-                "pushcart.pipeline_name": pipeline["pipeline_name"],
+                "pushcart.pipeline_name": pipeline["name"],
             }
 
             if not (pipeline_id := pipeline["pipeline_id"]):
                 pipeline_id = self.pipelines_wrapper.get_pipeline_id(
-                    pipeline["pipeline_name"],
+                    pipeline["name"],
                 )
 
             pipeline_settings = PipelineSettings(
@@ -234,7 +228,7 @@ class Scheduler:
             ).load_pipeline_settings(
                 target_catalog_name=pipeline["target_catalog_name"],
                 target_schema_name=pipeline["target_schema_name"],
-                pipeline_name=pipeline["pipeline_name"],
+                pipeline_name=pipeline["name"],
                 libraries=libraries,
                 configuration=configuration,
                 pipeline_id=pipeline_id,
@@ -242,7 +236,7 @@ class Scheduler:
 
             if not pipeline_id:
                 self.log.warning(
-                    f"Pipeline not found: {pipeline['pipeline_name']}. Creating a new one",
+                    f"Pipeline not found: {pipeline['name']}. Creating a new one",
                 )
                 pipeline_id = self.pipelines_wrapper.create_pipeline(
                     pipeline_settings,
@@ -258,14 +252,14 @@ class Scheduler:
                 {
                     "target_catalog_name": pipeline["target_catalog_name"],
                     "target_schema_name": pipeline["target_schema_name"],
-                    "pipeline_name": pipeline["pipeline_name"],
+                    "name": pipeline["name"],
                     "pipeline_id": pipeline_id,
                 },
             )
 
         return pipelines
 
-    @validate_arguments
+    @validate_call
     def create_or_update_jobs(self, pipelines: list) -> list:
         """Create or update jobs for a list of DLT pipelines.
 
@@ -275,7 +269,7 @@ class Scheduler:
             List of DLT pipelines, in the form of [{
                 "target_schema_name": target_schema_name,
                 "target_catalog_name": target_catalog_name,
-                "pipeline_name": pipeline_name,
+                "name": pipeline_name,
                 "pipeline_id": pipeline_id,
             }, ...]
 
@@ -292,15 +286,15 @@ class Scheduler:
             job_settings = JobSettings(self.config_dir).load_job_settings(
                 target_catalog_name=p["target_catalog_name"],
                 target_schema_name=p["target_schema_name"],
-                pipeline_name=p["pipeline_name"],
+                pipeline_name=p["name"],
                 pipeline_id=p["pipeline_id"],
             )
 
-            job_id = self.jobs_wrapper.get_job_id(p["pipeline_name"])
+            job_id = self.jobs_wrapper.get_job_id(p["name"])
 
             if not job_id:
                 self.log.warning(
-                    f"Job not found: {p['pipeline_name']}. Creating a new one",
+                    f"Job not found: {p['name']}. Creating a new one",
                 )
                 jobs.append(self.jobs_wrapper.create_job(job_settings))
             else:
@@ -319,7 +313,7 @@ class Scheduler:
         ----------
         obsolete_pipelines : list
             List of dictionaries representing obsolete pipelines in the format
-            [{ "pipeline_name": pipeline_name,
+            [{ "name": pipeline_name,
                "pipeline_id": pipeline_id
             }, ...]
         workflows_jobs : list
@@ -331,8 +325,5 @@ class Scheduler:
         """
         for p in obsolete_pipelines:
             for j in workflows_jobs:
-                if (
-                    j["name"] == p["pipline_name"]
-                    or j["pipeline_id"] == p["pipeline_id"]
-                ):
+                if j["name"] == p["name"] or j["pipeline_id"] == p["pipeline_id"]:
                     self.jobs_wrapper.delete_job(j["job_id"])
