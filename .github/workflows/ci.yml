@@ -55,7 +55,7 @@ jobs:
       #            publish to pypi test
       #----------------------------------------------
       - name: Publish to PyPi Test
-        if: github.ref != 'refs/heads/main'
+        if: startsWith(github.ref, 'refs/tags')
         shell: bash
         env:
           POETRY_PYPI_TOKEN_PYPI_TEST: ${{ secrets.POETRY_PYPI_TOKEN_PYPI_TEST }}
