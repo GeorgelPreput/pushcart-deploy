@@ -34,7 +34,7 @@ jobs:
         run: |
           poetry install --no-interaction --no-root
           poetry build
-          poetry install --no-interaction --no-root
+          poetry install --no-interaction
       #----------------------------------------------
       #    run test suite and output coverage file
       #----------------------------------------------
