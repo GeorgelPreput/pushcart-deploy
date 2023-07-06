@@ -46,15 +46,6 @@ jobs:
           DATABRICKS_CLUSTER_ID: ${{ secrets.DATABRICKS_CLUSTER_ID }}
         run: poetry run pytest --junitxml=pytest.xml --cov-report=term-missing:skip-covered --cov=src --cov-report=xml tests/ | tee pytest-coverage.txt
       #----------------------------------------------
-      #             upload coverage stats
-      #----------------------------------------------
-      - name: Pytest coverage comment
-        id: coverageComment
-        uses: MishaKav/pytest-coverage-comment@main
-        with:
-          pytest-coverage-path: ./pytest-coverage.txt
-          junitxml-path: ./pytest.xml
-      #----------------------------------------------
       #             print build version
       #----------------------------------------------
       - name: Print build version
