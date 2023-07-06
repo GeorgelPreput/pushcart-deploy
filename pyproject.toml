@@ -107,6 +107,7 @@ urllib3 = "^1"
 
 [tool.poetry.group.dev.dependencies]
 black = { version = "*", allow-prereleases = true }
+bumpver = "^2023.1124"
 coverage = "^7.2.7"
 hypothesis = "^6.70.1"
 ipykernel = "^6.22.0"
@@ -122,3 +123,14 @@ pushcart-deploy = "pushcart_deploy.setup:deploy"
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
+
+[tool.bumpver]
+current_version = "1.6.1"
+version_pattern = "MAJOR.MINOR.PATCH"
+commit_message = "bump version {old_version} -> {new_version}"
+commit = true
+tag = true
+push = true
+
+[tool.bumpver.file_patterns]
+"pyproject.toml" = ['^version = "{version}"$']

@@ -15,20 +15,68 @@ jobs:
         id: setup-python
         with:
           python-version: "3.10"
-      - name: build
-        uses: "./.github/workflow-templates/build-library"
-      - name: test
-        uses: "./.github/workflow-templates/test"
+      #----------------------------------------------
+      #         install & configure poetry
+      #----------------------------------------------
+      - name: Install Poetry
+        env:
+          POETRY_VIRTUALENVS_CREATE: "true"
+          POETRY_VIRTUALENVS_IN_PROJECT: "true"
+        shell: bash
+        run: |
+          pipx install poetry
+          pipx inject poetry .
+      #----------------------------------------------
+      #                 build library
+      #----------------------------------------------
+      - name: Build library
+        shell: bash
+        run: |
+          poetry install --no-interaction --no-root
+          poetry build
+      #----------------------------------------------
+      #    run test suite and output coverage file
+      #----------------------------------------------
+      - name: Test with pytest
+        shell: bash
+        env:
+          DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
+          DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
+          DATABRICKS_CLUSTER_ID: ${{ secrets.DATABRICKS_CLUSTER_ID }}
+        run: poetry run pytest --junitxml=pytest.xml --cov-report=term-missing:skip-covered --cov=src --cov-report=xml tests/ | tee pytest-coverage.txt
+      #----------------------------------------------
+      #             upload coverage stats
+      #----------------------------------------------
+      - name: Pytest coverage comment
+        id: coverageComment
+        uses: MishaKav/pytest-coverage-comment@main
         with:
-          databricks_host: ${{ secrets.DATABRICKS_HOST }}
-          databricks_token: ${{ secrets.DATABRICKS_TOKEN }}
-          databricks_cluster_id: ${{ secrets.DATABRICKS_CLUSTER_ID }}
-      - name: semver
-        uses: "./.github/workflow-templates/semver"
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-      - name: publish
-        uses: "./.github/workflow-templates/publish"
-        with:
-          pypi_token: ${{ secrets.POETRY_PYPI_TOKEN_PYPI }}
-          pypi_test_token: ${{ secrets.POETRY_PYPI_TOKEN_PYPI_TEST }}
+          pytest-coverage-path: ./pytest-coverage.txt
+          junitxml-path: ./pytest.xml
+      #----------------------------------------------
+      #             print build version
+      #----------------------------------------------
+      - name: Print build version
+        shell: bash
+        run: cat pyproject.toml | grep "^version = "
+      #----------------------------------------------
+      #            publish to pypi test
+      #----------------------------------------------
+      - name: Publish to PyPi Test
+        if: github.ref != 'refs/heads/main'
+        shell: bash
+        env:
+          POETRY_PYPI_TOKEN_PYPI_TEST: ${{ secrets.POETRY_PYPI_TOKEN_PYPI_TEST }}
+        run: |
+          poetry config repositories.pypi_test https://test.pypi.org/legacy/
+          poetry publish -r pypi_test
+      #----------------------------------------------
+      #               publish to pypi
+      #----------------------------------------------
+      - name: Publish to PyPi
+        if: github.ref == 'refs/heads/main'
+        shell: bash
+        env:
+          POETRY_PYPI_TOKEN_PYPI: ${{ secrets.POETRY_PYPI_TOKEN_PYPI }}
+        run: |
+          poetry publish --build
