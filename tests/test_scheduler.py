@@ -18,14 +18,14 @@ class TestScheduler:
         """Tests that get_obsolete_pipelines_list returns the correct list."""
         scheduler = Scheduler(api_client=mock_api_client, config_dir="./tests/data")
         metadata_pipelines = [
-            {"pipeline_name": "pipeline1", "pipeline_id": "123"},
-            {"pipeline_name": "pipeline2", "pipeline_id": "456"},
+            {"name": "pipeline1", "pipeline_id": "123"},
+            {"name": "pipeline2", "pipeline_id": "456"},
         ]
         workflows_pipelines = [
-            {"pipeline_name": "pipeline1", "pipeline_id": "123"},
-            {"pipeline_name": "pipeline3", "pipeline_id": "789"},
+            {"name": "pipeline1", "pipeline_id": "123"},
+            {"name": "pipeline3", "pipeline_id": "789"},
         ]
-        expected_result = [{"pipeline_name": "pipeline3", "pipeline_id": "789"}]
+        expected_result = [{"name": "pipeline3", "pipeline_id": "789"}]
         assert (
             scheduler.get_obsolete_pipelines_list(
                 metadata_pipelines, workflows_pipelines
@@ -40,25 +40,25 @@ class TestScheduler:
             {
                 "target_catalog_name": "catalog1",
                 "target_schema_name": "schema1",
-                "pipeline_name": "pipeline1",
+                "name": "pipeline1",
                 "pipeline_id": "123",
             },
             {
                 "target_catalog_name": "catalog2",
                 "target_schema_name": "schema2",
-                "pipeline_name": "pipeline2",
+                "name": "pipeline2",
                 "pipeline_id": "456",
             },
         ]
         workflow_pipelines = [
-            {"pipeline_name": "pipeline1", "pipeline_id": "123"},
-            {"pipeline_name": "pipeline3", "pipeline_id": "789"},
+            {"name": "pipeline1", "pipeline_id": "123"},
+            {"name": "pipeline3", "pipeline_id": "789"},
         ]
         expected_result = [
             {
                 "target_catalog_name": "catalog1",
                 "target_schema_name": "schema1",
-                "pipeline_name": "pipeline1",
+                "name": "pipeline1",
                 "pipeline_id": "123",
             }
         ]
@@ -73,8 +73,8 @@ class TestScheduler:
         """Tests that get_new_pipelines_list handles an empty scheduled_pipelines list correctly."""
         scheduler = Scheduler(api_client=mock_api_client, config_dir="./tests/data")
         metadata_pipelines = [
-            {"pipeline_name": "pipeline1", "pipeline_id": "123"},
-            {"pipeline_name": "pipeline2", "pipeline_id": "456"},
+            {"name": "pipeline1", "pipeline_id": "123"},
+            {"name": "pipeline2", "pipeline_id": "456"},
         ]
         workflows_pipelines = []
         expected_result = metadata_pipelines
@@ -108,13 +108,13 @@ class TestScheduler:
             {
                 "target_catalog_name": "sample_catalog",
                 "target_schema_name": "sample_schema",
-                "pipeline_name": "pipeline1",
+                "name": "pipeline1",
                 "pipeline_id": "123",
             },
             {
                 "target_catalog_name": "sample_catalog",
                 "target_schema_name": "sample_schema",
-                "pipeline_name": "pipeline2",
+                "name": "pipeline2",
                 "pipeline_id": "456",
             },
         ]
@@ -135,7 +135,7 @@ class TestScheduler:
     def test_delete_obsolete_pipelines_happy(self, mocker, mock_api_client):
         """Tests that delete_obsolete_pipelines deletes pipelines correctly."""
         scheduler = Scheduler(api_client=mock_api_client, config_dir="./tests/data")
-        obsolete_pipelines = [{"pipeline_name": "pipeline1", "pipeline_id": "123"}]
+        obsolete_pipelines = [{"name": "pipeline1", "pipeline_id": "123"}]
         mocker.patch.object(scheduler.pipelines_wrapper, "delete_pipeline")
         scheduler.delete_obsolete_pipelines(obsolete_pipelines)
         scheduler.pipelines_wrapper.delete_pipeline.assert_called_once_with(

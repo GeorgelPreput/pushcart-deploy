@@ -44,7 +44,7 @@ class ReposWrapper:
     api_client: ApiClient
     config_dir: DirectoryPath
 
-    def __post_init_post_parse__(self) -> None:
+    def __post_init__(self) -> None:
         """Initialize logger and object configuration."""
         self.log = logging.getLogger(__name__)
 

@@ -20,10 +20,11 @@ environment.
 """
 import logging
 
+from databricks.sdk import WorkspaceClient
 from databricks.sdk.dbutils import RemoteDbUtils
 from databricks_cli.pipelines.api import PipelinesApi
 from databricks_cli.sdk.api_client import ApiClient
-from pydantic import DirectoryPath, dataclasses, validate_arguments
+from pydantic import DirectoryPath, dataclasses, validate_call
 
 from pushcart_deploy.validation import PydanticArbitraryTypesConfig
 
@@ -38,10 +39,11 @@ class PipelinesWrapper:
     api_client: ApiClient
     config_dir: DirectoryPath
 
-    def __post_init_post_parse__(self) -> None:
+    def __post_init__(self) -> None:
         """Initialize the logger instance and create an instance of PipelinesApi."""
         self.log = logging.getLogger(__name__)
 
+        self.workspace = WorkspaceClient()
         self.pipelines_api = PipelinesApi(self.api_client)
         self.dbutils = RemoteDbUtils()
 
@@ -53,12 +55,12 @@ class PipelinesWrapper:
         list
             a list of dict containing pipeline ids and names, e.g. [ { pipeline_name: pipeline_id }, ... ]
         """
-        pipelines = self.pipelines_api.list()
+        pipelines = self.workspace.pipelines.list_pipelines()
 
         return [
             {
-                "pipeline_name": p["name"],
-                "pipeline_id": p["pipeline_id"],
+                "name": p.name,
+                "pipeline_id": p.pipeline_id,
             }
             for p in pipelines
         ]
@@ -82,7 +84,7 @@ class PipelinesWrapper:
 
         return pipelines_filtered.get(pipeline_name)
 
-    @validate_arguments
+    @validate_call
     def create_pipeline(self, pipeline_settings: dict, repo_path: str) -> str:
         """Create a DLT pipeline using the provided settings.
 
@@ -110,7 +112,7 @@ class PipelinesWrapper:
         )
         return pipeline["pipeline_id"]
 
-    @validate_arguments
+    @validate_call
     def update_pipeline(self, pipeline_settings: dict, repo_path: str) -> str:
         """Update an existing pipeline with new settings.
 
@@ -137,7 +139,7 @@ class PipelinesWrapper:
         )
         return pipeline_settings["id"]
 
-    @validate_arguments
+    @validate_call
     def delete_pipeline(self, pipeline_id: str) -> None:
         """Delete a pipeline from DLT workflows.
 

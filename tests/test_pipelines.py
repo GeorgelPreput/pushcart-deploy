@@ -229,7 +229,7 @@ class TestPipelineWrapper:
         pipelines_list = pipelines_wrapper.get_pipelines_list()
         assert isinstance(pipelines_list, list)
         assert all(isinstance(p, dict) for p in pipelines_list)
-        assert all("pipeline_name" in p and "pipeline_id" in p for p in pipelines_list)
+        assert all("name" in p and "pipeline_id" in p for p in pipelines_list)
 
     def test_get_pipeline_id_existing(self, mocker, mock_api_client):
         """Tests that the method returns the correct pipeline ID for an existing pipeline name."""

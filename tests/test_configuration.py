@@ -1,8 +1,7 @@
 from pathlib import Path
 
 import pytest
-from hypothesis import given
-from hypothesis import strategies as st
+from pydantic_core._pydantic_core import ValidationError
 
 from pushcart_deploy.configuration import (
     Configuration,
@@ -16,25 +15,27 @@ from pushcart_deploy.configuration import (
 
 
 class TestValidation:
-    @given(st.builds(Validation))
-    def test_validation_happy_path(self, validation):
+    def test_validation_happy_path(self):
         """Tests that the validation_action field matches one of the three allowed values
         and that validation_rule is a string.
         """
-        assert validation.validation_action in ["LOG", "DROP", "FAIL"]
-        assert isinstance(validation.validation_rule, str)
+        for action in ["LOG", "DROP", "FAIL"]:
+            validation = Validation(validation_rule="test", validation_action=action)
+
+            assert validation.validation_action in ["LOG", "DROP", "FAIL"]
+            assert isinstance(validation.validation_rule, str)
 
     def test_validation_rule_string(self):
         """Tests that the validation_rule field is a string."""
         with pytest.raises(ValueError) as e:
             Validation(validation_rule=123, validation_action="LOG")
-        assert "str type expected" in str(e.value)
+        assert "Input should be a valid string" in str(e.value)
 
     def test_validation_rule_min_length(self):
         """Tests that the validation_rule field has a minimum length of 1."""
         with pytest.raises(ValueError) as e:
             Validation(validation_rule="", validation_action="LOG")
-        assert "ensure this value has at least 1 characters" in str(e.value)
+        assert "String should have at least 1 characters" in str(e.value)
 
 
 class TestGetConfigFromFile:
@@ -439,7 +440,7 @@ class TestDestination:
         """Tests that the destination class raises a validation error when required fields
         are missing.
         """
-        with pytest.raises(TypeError):
+        with pytest.raises(ValidationError):
             Destination(
                 target_catalog_name="sample_catalog",
                 target_schema_name="sample_schema",
@@ -447,7 +448,7 @@ class TestDestination:
                 origin="my_data",
                 mode="append",
             )
-        with pytest.raises(ValueError):
+        with pytest.raises(ValidationError):
             Destination(
                 target_catalog_name="sample_catalog",
                 target_schema_name="sample_schema",
